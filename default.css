@@ -1,0 +1,301 @@
+/***
+* 3D Earth tomo viewer - project to visualize global seismic models
+*
+* Copyright (c) 2024 Daniel Peter
+* MIT License - https://opensource.org/license/mit
+***/
+
+/* default style sheet */
+@import url("http://fonts.googleapis.com/css?family=Raleway|Exo+2|Lato|Open+Sans");
+
+/* -------------------------------------------------------------
+
+versioning:
+version 0.0.1: september 2024, daniel peter
+
+------------------------------------------------------------- */
+
+/* -------------------------------------------------------------
+
+reset
+
+------------------------------------------------------------- */
+
+html, body, div, span, applet, object, iframe, canvas,
+header, nav, footer, section,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, font, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+pathline, parallax,
+table, caption, tbody, tfoot, thead, tr, th, td {
+    border: 0;
+    font-family: inherit;
+    font-size: 100%;
+    font-style: inherit;
+    font-weight: inherit;
+    outline: 0;
+    vertical-align: baseline;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    /* Corrects text resizing oddly in IE6/7 when body font-size is set using em units http://clagnut.com/blog/348/#c790 */
+    /*font-size: 62.5%;*/
+    /* Keeps page centered in all browsers regardless of content height */
+    overflow-y: scroll;
+    /* Prevents iOS text size adjust after orientation change, without disabling user zoom */
+    -webkit-text-size-adjust: 100%;
+    /* www.456bereastreet.com/archive/201012/controlling_text_size_in_safari_for_ios_without_disabling_user_zoom/ */
+    -ms-text-size-adjust: 100%;
+    height: 100%;
+}
+
+body,html {
+    background-color: black;
+    color: white;
+    overflow: hidden;
+    height: 100%;
+}
+
+body {
+    font-family: 'Open Sans','Raleway','Lato','Exo 2','HelveticaNeue-Light','Helvetica Neue Light','Helvetica Neue', Helvetica, sans-serif;
+    font-weight: normal;
+    margin: 0;
+    padding: 0;
+}
+
+/* -------------------------------------------------------------
+
+clearing
+
+------------------------------------------------------------- */
+
+.container:after,
+#header-menu:after,
+.entry-container:after,
+.entry-header:after,
+.widget:after,
+#supplementary:after,
+.site-info:after,
+.featued-content-wrap:after {
+    content: "\0020";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+/* You can also use a <br class="clear" /> to clear columns */
+.clear {
+    clear: both;
+    display: block;
+    overflow: hidden;
+    visibility: hidden;
+    width: 0;
+    height: 0;
+}
+
+/* -------------------------------------------------------------
+
+structure
+
+------------------------------------------------------------- */
+
+/* canvas container */
+#map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 500px;
+    min-height: 500px;
+    text-align: center;
+}
+
+/* page layout */
+.content {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.fill-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: auto;
+}
+
+/* -------------------------------------------------------------
+
+menu
+
+------------------------------------------------------------- */
+
+/* Position the hamburger & cross icon at the top-right */
+.hamburger {
+    font-size: 30px;
+    cursor: pointer;
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    z-index: 10;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.cross {
+    font-size: 20px;
+    cursor: pointer;
+    position: fixed;
+    top: 20px;
+    right: 25px;
+    z-index: 10;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hamburger.active {
+  opacity: 0;  /* Fade out hamburger icon */
+}
+
+.cross {
+  opacity: 0;  /* Initially hide cross */
+}
+
+.cross.active {
+  opacity: 1;  /* Fade in cross icon */
+}
+
+/* Hide the menu by default */
+.menu {
+    display: none;    /* Hide the menu initially */
+    list-style: none;
+    padding: 2px;
+    margin: 0;
+    background-color: #222;
+
+    position: fixed;
+    top: 50px;        /* Position below the hamburger */
+    right: 20px;      /* Align with hamburger icon */
+    width: 300px;     /* Menu width */
+
+    z-index: 9;
+
+    border: 1px solid #999;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#cross {
+  display: none;  /* Hide the cross icon initially */
+}
+
+/* Show the menu when the class is toggled */
+.menu.show {
+    display: block;
+}
+.menu li {
+    margin: 10px 0;
+    color: #999;
+}
+.menu li a {
+    color: white;
+    font-size: 18px;
+    display: block;
+    padding: 10px;
+}
+.menu li a:hover {
+    background-color: #444;
+}
+
+.menu-title {
+    display: inline-block;
+    position: relative;
+    width: 60px;
+    min-width: 60px;
+    color: #666;
+    text-align: left;
+}
+
+.menu-item {
+    /* display: inline-block; */
+    /* position: relative; */
+    /* width: 100px; */
+    /* min-width: 100px; */
+    color: #aaa;
+    text-align: center;
+}
+
+.menu-item.highlighted {
+    color: #fff;
+}
+
+.menu-item:hover, .no-touch .menu-item:focus, .menu-item:active {
+    color: #fff;
+    cursor: pointer;
+    transition: color 125ms ease-in;
+    -webkit-transition: color 125ms ease-in;
+}
+
+a {
+    color: #666;
+    text-decoration: none;
+}
+
+a:hover, a:focus, .no-touch .menu-item:hover, .no-touch .menu-item:focus, .menu-item:active {
+    color: #fff;
+    cursor: pointer;
+    transition: color 125ms ease-in;
+    -webkit-transition: color 125ms ease-in;
+}
+
+
+ul {
+    padding: 5px;
+    text-align: left;
+    p {
+        color: #666;
+    }
+    a {
+        color: #aaa;
+    }
+    span {
+        padding: 5px;
+    }
+    .highlighted {
+        color: #fff;
+    }
+    label {
+        font-size: 14px;
+    }
+}
+
+#menu svg {
+  width: 30px;
+  height: 30px;
+  vertical-align: middle;
+}
+
+
+/* -------------------------------------------------------------
+
+footer
+
+------------------------------------------------------------- */
+
+/* Footer at the bottom-right */
+.footer {
+    position: fixed;
+    bottom: 5px;
+    right: 20px;
+    font-size: 0.8rem;
+    text-align: right;
+    vertical-align: baseline;
+    color: #888;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
