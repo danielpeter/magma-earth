@@ -189,7 +189,7 @@ async function createVectorField() {
 
 function createVectorFieldWorker(imageData, width, height) {
   // web worker instance for processing image data
-  const worker = new Worker("./js/vectorFieldWorker.js");
+  let worker = new Worker("./js/vectorFieldWorker.js");
 
   // Send image data to the worker for processing to scalar array
   worker.postMessage({ type: 'scalar', imageData, width, height });
@@ -233,13 +233,15 @@ function createVectorFieldWorker(imageData, width, height) {
         // Dispatch custom up event on the window object
         window.dispatchEvent(new CustomEvent('update',{ detail: 'vectorField gradientDone'}));
 
+        // worker is done
+        worker.terminate();
+        worker = null;
+
         break;
       }
       default:
         console.error('createVectorField: unknown message type from worker:', message.type);
     }
-
-    //callback(processedImageData);  // Call the callback with the processed data
   };
 
   // Handle any errors from the worker

@@ -16,16 +16,23 @@ importScripts("./lib/d3.v7.min.js");
 // smoothing kernel size
 const KERNEL_SIZE = 3;
 
+// data
+let contours = null;
 
 // message
 self.onmessage = function(event) {
   const { data, width, height, ContourThresholds } = event.data;
 
   // process
-  const contours = processContourData(data, width, height, ContourThresholds);
+  processContourData(data, width, height, ContourThresholds);
 
   // Send the processed image data back to the main thread
   self.postMessage({ Contours: contours });
+
+  // clean up
+  contours.forEach(contour => contour = null);
+  contours = null;
+
 }
 
 
@@ -186,7 +193,7 @@ function processContourData(data, width, height, ContourThresholds){
   */
 
   // paths converted to lon/lat to screen pixel
-  const contours = d3.contours()
+  contours = d3.contours()
                         .size([w, h])
                         .smooth(true)
                         .thresholds(ContourThresholds)
@@ -196,5 +203,9 @@ function processContourData(data, width, height, ContourThresholds){
 
   console.timeEnd('createContours');
 
-  return contours;
+  // cleanup temporary array
+  dataSub = null;
+
+  // all done
+  return;
 }

@@ -18,6 +18,10 @@ const KERNEL_SIZE = 1;
 // gradient scaling
 const NORMALIZE_GRADIENT = true;
 
+// arrays
+let scalarArray = null;
+let vectorArray = null;
+
 // message
 self.onmessage = function(event) {
   const message = event.data;
@@ -28,10 +32,14 @@ self.onmessage = function(event) {
       const { imageData, width, height } = message;
 
       // process
-      const scalarArray = processVectorField(imageData, width, height);
+      processVectorField(imageData, width, height);
 
       // Send the processed image data back to the main thread
       self.postMessage({type: 'scalarDone', scalarData: scalarArray});
+
+      // clean up the array
+      scalarArray = null;
+
       break;
     }
     case 'gradient': {
@@ -39,10 +47,14 @@ self.onmessage = function(event) {
       const { scalarData, width, height } = message;
 
       // process
-      const vectorArray = processGradientField(scalarData, width, height);
+      processGradientField(scalarData, width, height);
 
       // Send the processed image data back to the main thread
       self.postMessage({type: 'gradientDone', vectorData: vectorArray});
+
+      // clean up array
+      vectorArray = null;
+
       break;
     }
     default:
@@ -57,7 +69,7 @@ function processVectorField(imageData, width, height){
   // create a grayscale array
   console.log(`createVectorField: creating grayscale...`);
 
-  let scalarArray = new Float32Array(width * height);
+  scalarArray = new Float32Array(width * height);
 
   for (let i = 0, j = 0; i < imageData.data.length; i += 4, j++) {
       const r = imageData.data[i];     // Red channel
@@ -117,9 +129,8 @@ function processVectorField(imageData, width, height){
   }
   //console.log(`createVectorField: data dlat/dlon = ${180/height}/${360/width}`);
 
-  // return scalar and gradient arrays
-  return scalarArray;
-
+  // done processing
+  return;
 }
 
 
@@ -333,6 +344,7 @@ function processGradientField(scalarData, width, height) {
     console.log(`computeGradientField: normalized vector vx: min/max = ${vxMin}/${vxMax} vy: min/max = ${vyMin}/${vyMax} norm: ${norm}`);
   }
 
-  return vectorArray;
+  // done processing
+  return;
 }
 

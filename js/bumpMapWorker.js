@@ -15,6 +15,9 @@ importScripts("./lib/d3.v7.min.js");
 // smoothing kernel size
 const KERNEL_SIZE = 1;
 
+// data
+let scalarArray = null;
+
 // message
 self.onmessage = function(event) {
   const message = event.data;

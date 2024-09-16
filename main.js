@@ -56,7 +56,9 @@ function getCurrentViewSize(){
 }
 
 function isMobileDevice() {
-  return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
+  //debug
+  return true;
+  //return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
 }
 const isMobile = isMobileDevice();
 if (isMobile) console.log('[mobile version]');
@@ -669,10 +671,6 @@ function updateFullView(){
   // new drawing
   clearContexts();
 
-  // particles - renew random positions
-  //particles.initializeParticles();
-  //renderer.state.showParticles = true;
-
   // update visible points
   renderer.updateVisiblePoints(projection, width, height);
 
@@ -715,10 +713,23 @@ function startAnimation(){
   animationStartTime = d3.now();
   animationCancel = false;
 
+  // animate, move & draw particles
+  // to avoid multi-frame delay between the initial call and callbacks
+  // see: https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
+  requestAnimationFrame(firstFrame);
+  // instead of directly
+  //requestAnimationFrame(doAnimationFrame);
+
   //console.log(`startAnimation: request animation frame ${animationStartTime}`);
+}
+
+function firstFrame(timestamp) {
+  // to avoid multi-frame delay between the initial call and callbacks
+  animationStartTime = timestamp;
 
   // animate, move & draw particles
-  requestAnimationFrame(doAnimationFrame);
+  // subsequent callbacks
+  doAnimationFrame(timestamp);
 }
 
 function stopAnimation(){
@@ -750,7 +761,7 @@ function doAnimationFrame(currentTime) {
       // move particles
       particles.moveParticles();
       // render animation canvas
-      particles.drawParticles(projection, contextAnimation);
+      particles.drawParticles(projection, contextAnimation, width, height);
     }
 
     // Reset the lastTime
@@ -821,7 +832,7 @@ function onAnimationTicker() {
     // rendering
     //renderer.render(projection, context, path, transform, land, borders, plates, quakes, true);
     // only render to animation canvas
-    particles.drawParticles(projection, contextAnimation);
+    particles.drawParticles(projection, contextAnimation, width, height);
   //}
 
   const elapsed = d3.now() - animationStartTime;
@@ -886,14 +897,6 @@ function onResize() {
 
   // stop animation
   stopAnimation();
-  //renderer.state.showParticles = false;
-
-  // particles
-  //particles.initializeParticles();
-  //renderer.state.showParticles = false;
-
-  // update visible points
-  //renderer.updateVisiblePoints(projection, width, height);
 
   // update view
   renderer.render(projection, contextGlobe, path, transform, landLowRes, bordersLowRes, plates, quakes, false);

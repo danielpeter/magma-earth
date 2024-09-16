@@ -103,7 +103,7 @@ async function createBumpMap() {
 //function createBumpMapWorker(imageData, callback) {
 function createBumpMapWorker(imageData, width, height) {
   // web worker for processing bump map
-  const worker = new Worker("./js/bumpMapWorker.js");
+  let worker = new Worker("./js/bumpMapWorker.js");
 
   // Send image data to the worker for processing bump map
   worker.postMessage({type: 'bump', imageData, width, height, ADD_HILLSHADE });
@@ -154,6 +154,10 @@ function createBumpMapWorker(imageData, width, height) {
         // update view
         // Dispatch custom up event on the window object
         window.dispatchEvent(new CustomEvent('update',{ detail: 'hillshadeDone - all done'}));
+
+        // worker is done
+        worker.terminate();
+        worker = null;
 
         break;
       }

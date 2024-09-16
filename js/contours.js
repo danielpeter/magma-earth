@@ -45,7 +45,7 @@ function createContours(data,width,height) {
   if (data == null) return;
 
   // web worker for processing bump map
-  const worker = new Worker("./js/contoursWorker.js");
+  let worker = new Worker("./js/contoursWorker.js");
 
   // Send image data to the worker for processing bump map
   worker.postMessage({data, width, height, ContourThresholds});
@@ -61,7 +61,9 @@ function createContours(data,width,height) {
     // Dispatch custom up event on the window object
     window.dispatchEvent(new CustomEvent('update',{ detail: 'contoursDone'}));
 
-    //callback(processedImageData);  // Call the callback with the processed data
+    // worker is done
+    worker.terminate();
+    worker = null;
   };
 
   // Handle any errors from the worker
@@ -74,6 +76,7 @@ function createContours(data,width,height) {
 
 function clearContours() {
   // clear contours array
+  Contours.forEach(contour => contour = null);
   if (Contours != null) Contours = null;
 }
 
