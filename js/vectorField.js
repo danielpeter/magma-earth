@@ -111,13 +111,13 @@ function getColorSelection() {
 
 /*
 // simple function example
-function getVectorField(lat, lon) {
+function getVectorField(lat, lon, vector) {
   // Calculate the x and y components of the vector based on your desired field
   const latRad = lat * (Math.PI / 180.0);
   const lonRad = lon * (Math.PI / 180.0);
-  const vx = Math.sin(latRad) * Math.cos(lonRad);
-  const vy = Math.cos(latRad);
-  return { vx, vy };
+  vector[0] = Math.sin(latRad) * Math.cos(lonRad);
+  vector[1] = Math.cos(latRad);
+  return vector;
 }
 */
 
@@ -288,14 +288,16 @@ async function setupVectorField() {
 
 
 
-function getVectorField(lon_in,lat_in) {
+function getVectorField(lon_in, lat_in, vector) {
   //console.log('vectorField: ',vectorData);
 
   if (vectorData == null){
     // this won't work, would need async function / await ..
     //createVectorField();
     //console.log('vectorField: vector field loaded : ',vectorData);
-    return { vx: null, vy: null };
+    vector[0] = null; // vx
+    vector[1] = null; // vy
+    return vector;
   }
 
   const width = scalarMapWidth, height = scalarMapHeight;
@@ -327,10 +329,10 @@ function getVectorField(lon_in,lat_in) {
   if (index >= index_max) { index = index_max - 1; }
 
   // get gradient
-  const vx = vectorData[index * 2 ];
-  const vy = vectorData[index * 2 + 1];
+  vector[0] = vectorData[index * 2 ];    // vx
+  vector[1] = vectorData[index * 2 + 1]; // vy
 
-  return { vx, vy };
+  return vector;
 }
 
 //-------------------------------

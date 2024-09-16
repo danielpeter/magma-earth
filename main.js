@@ -57,9 +57,11 @@ function getCurrentViewSize(){
 
 function isMobileDevice() {
   //debug
-  return true;
-  //return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
+  //return true;
+  // check mobile agents
+  return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
 }
+
 const isMobile = isMobileDevice();
 if (isMobile) console.log('[mobile version]');
 

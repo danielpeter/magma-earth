@@ -16,7 +16,8 @@ const ADD_PARTICLES = true;
 
 // total number of particles
 let numParticles = 10000;
-const USE_VARIABLE_NUMPARTICLES = false;
+
+const USE_VARIABLE_NUMPARTICLES = true;
 
 // maximum particle age
 const maxAge = 80;
@@ -45,6 +46,9 @@ let vCenter = null; // position vector for center point
 
 // constants
 const DEGREE_TO_RADIAN = Math.PI / 180;
+
+// pre-allocate vector
+const vector = new Float32Array(2);
 
 // Initialize particles
 function initializeParticles() {
@@ -127,15 +131,14 @@ function createParticle(i) {
   // moves points according to vector field:
   //   vx - x direction == lon
   //   vy - y direction == lat
-  let vx, vy;
-  ({ vx,vy } = vectorField.getVectorField(lon, lat));
+  vectorField.getVectorField(lon, lat, vector);
 
   // check if valid
-  if (!vx || !vy){ return; }
+  if (!vector[0] || !vector[1]){ return; }
 
   // scale velocities
-  vx *= VELOCITY_FACTOR;
-  vy *= VELOCITY_FACTOR;
+  vector[0] *= VELOCITY_FACTOR; // vx
+  vector[1] *= VELOCITY_FACTOR; // vy
 
   // or simple vector field
   //const lonRad = lon * DEGREE_TO_RADIAN;
@@ -156,8 +159,8 @@ function createParticle(i) {
 
   particles[index] = lon;     // lon
   particles[index + 1] = lat; // lat
-  particles[index + 2] = vx;  // vx
-  particles[index + 3] = vy;  // vy
+  particles[index + 2] = vector[0];  // vx
+  particles[index + 3] = vector[1];  // vy
   particles[index + 4] = age; // age
 }
 
@@ -224,7 +227,7 @@ function determineBoundsLonLat(projection,width,height){
   // set new bounds
   bounds = { lonMin, lonMax, latMin, latMax };
 
-  console.log(`determineBoundsLonLat: bounds lon: min/max = ${lonMin}/${lonMax} lat: min/max = ${latMin}/${latMax}`);
+  //console.log(`determineBoundsLonLat: bounds lon: min/max = ${lonMin}/${lonMax} lat: min/max = ${latMin}/${latMax}`);
 }
 
 function updateParticles(projection,width,height) {
@@ -237,7 +240,7 @@ function updateParticles(projection,width,height) {
   if (! vectorField.isGradientValid()) return;
 
   //console.time('updateParticles')
-  console.log(`updateParticles: width/height ${width}/${height}`);
+  //console.log(`updateParticles: width/height ${width}/${height}`);
 
   // context for animation drawing
   //const context = d3.select("#animation").node().getContext("2d");
@@ -274,22 +277,25 @@ function updateParticles(projection,width,height) {
   // adapt number of particles to view range
   if (USE_VARIABLE_NUMPARTICLES) {
     // estimate number of particles based on window size
-    let estimate = 10 * Math.max(width,height);
-    console.log(`updateParticles: numParticles ${numParticles} estimate window size ${estimate}`);
+    //let estimate = 10 * Math.max(width,height);
+    //console.log(`updateParticles: numParticles ${numParticles} estimate window size ${estimate}`);
 
     // estimate based on bounds range
-    estimate = (bounds.lonMax - bounds.lonMin) * (bounds.latMax - bounds.latMin);
-    console.log(`updateParticles: numParticles ${numParticles} estimate bounds range ${estimate}`);
+    //estimate = (bounds.lonMax - bounds.lonMin) * (bounds.latMax - bounds.latMin);
+    //console.log(`updateParticles: numParticles ${numParticles} estimate bounds range ${estimate}`);
 
-    if (estimate > 20000) {
-      numParticles = 20000;
-    } else {
-      numParticles = 10000;
-    }
+    //if (estimate > 20000) {
+    //  numParticles = 20000;
+    //} else {
+    //  numParticles = 10000;
+    //}
+
+    // check pixel size limit 100 x 100 == 10,000
+    if (width * height < numParticles) numParticles = Math.floor(width * height * 0.7);
 
     // check if we need to recreate the array
     if (particles.length != numParticles * 5) {
-      console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
+      //console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
       // re-create new array
       particles = new Float32Array(numParticles * 5); // x, y, vx, vy, age
     }
@@ -349,18 +355,14 @@ function moveParticles() {
     let lon = particles[index];
     let lat = particles[index + 1];
 
-    let vx,vy;
-    ({ vx, vy } = vectorField.getVectorField(lon, lat));
+    vectorField.getVectorField(lon, lat, vector);
 
     // check if valid
-    if (!vx || !vy){ return; }
+    if (!vector[0] || !vector[1]){ return; }
 
     // scale velocities
-    vx *= VELOCITY_FACTOR;
-    vy *= VELOCITY_FACTOR;
-    
-    particles[index + 2] = vx;
-    particles[index + 3] = vy;
+    particles[index + 2] = vector[0] * VELOCITY_FACTOR;  // vx
+    particles[index + 3] = vector[1] * VELOCITY_FACTOR;  // vy
 
     // ageing
     let age = particles[index + 4];
@@ -441,6 +443,12 @@ function drawParticles(projection, context, width, height) {
     colorBuckets[color].length = 0; // set length to zero to avoid costly garbage collection
   });
 
+  // position vectors
+  const p0 = [0, 0];
+  const p1 = [0, 0];
+  const v0 = [0, 0, 0];
+  const v1 = [0, 0, 0];
+
   // fill color buckets
   for (let i = 0; i < particles.length; i++) {
     const index = i * 5;
@@ -457,6 +465,9 @@ function drawParticles(projection, context, width, height) {
       const vx = particles[index + 2];
       const vy = particles[index + 3];
 
+      // velocity strength
+      const normSq = (vx * vx + vy * vy) / VELOCITY_FACTOR;  // in [0,1]
+
       // updated position
       const lon1 = lon0 + vx;
       const lat1 = lat0 + vy;
@@ -465,34 +476,35 @@ function drawParticles(projection, context, width, height) {
       // current point location vector
       const lonRad = lon0 * DEGREE_TO_RADIAN;
       const latRad = lat0 * DEGREE_TO_RADIAN;
-      const v0 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+      v0[0] = Math.cos(latRad) * Math.cos(lonRad);
+      v0[1] = Math.cos(latRad) * Math.sin(lonRad);
+      v0[2] = Math.sin(latRad);
 
       const lonRad1 = lon1 * DEGREE_TO_RADIAN;
       const latRad1 = lat1 * DEGREE_TO_RADIAN;
-      const v1 = [ Math.cos(latRad1) * Math.cos(lonRad1), Math.cos(latRad1) * Math.sin(lonRad1), Math.sin(latRad1) ];
+      v1[0] = Math.cos(latRad1) * Math.cos(lonRad1);
+      v1[1] = Math.cos(latRad1) * Math.sin(lonRad1);
+      v1[2] = Math.sin(latRad1);
 
       if(! isPointVisibleHemisphere(vCenter,v0)) { continue; }
       if(! isPointVisibleHemisphere(vCenter,v1)) { continue; }
 
       // converted to x/y pixel indexing
-      const p0 = projection([lon0,lat0]);
-      const p1 = projection([lon1,lat1]);
+      //([p0[0],p0[1]] = projection([lon0,lat0]));
+      //([p1[0],p1[1]] = projection([lon1,lat1]));
 
       // check if valid
-      if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { continue; }
-      if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { continue; }
+      //if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { continue; }
+      //if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { continue; }
 
       // line points
-      const [x0,y0] = p0;
-      const [x1,y1] = p1;
+      //const [x0,y0] = p0;
+      //const [x1,y1] = p1;
 
       // check if point is visible area
       // doesn't work, returned [x,y] pixel positions are all within globe area...
       //if (! isPointClose([x0,y0])) { continue; }
       //if (! isPointClose([x1,y1])) { continue; }
-
-      // velocity strength
-      const normSq = (vx * vx + vy * vy) / VELOCITY_FACTOR;  // in [0,1]
 
       // coloring
       // convert norm to rgb gray scale value
@@ -517,12 +529,10 @@ function drawParticles(projection, context, width, height) {
       const color = colorScale(normSq);
 
       // If this color doesn't have a bucket yet, create an empty array for it
-      if (!colorBuckets[color]) {
-        colorBuckets[color] = [];
-      }
+      //if (!colorBuckets[color]) { colorBuckets[color] = []; }
 
       // Add the particle to the appropriate color bucket
-      colorBuckets[color].push([x0,y0,x1,y1]);
+      colorBuckets[color].push(index);
     } // age
   }
 
@@ -535,17 +545,46 @@ function drawParticles(projection, context, width, height) {
     if (bucketParticles.length == 0) return;
 
     // draw bucket
-    context.beginPath();
-    context.strokeStyle = color;
-    context.lineWidth = lineWidth; //particleSize;
+    //context.beginPath();
+    //context.strokeStyle = color;
+    //context.lineWidth = lineWidth; //particleSize;
+    //bucketParticles.forEach(([x0,y0,x1,y1]) => {
+    //  // line
+    //  context.moveTo(x0, y0);
+    //  context.lineTo(x1, y1);
+    //});
+    //context.stroke();
 
-    bucketParticles.forEach(([x0,y0,x1,y1]) => {
-      // line
-      context.moveTo(x0, y0);
-      context.lineTo(x1, y1);
+    const path = new Path2D();
+    bucketParticles.forEach(index => {
+      // initial position
+      // lon/lat positions
+      const lon0 = particles[index];
+      const lat0 = particles[index + 1];
+
+      const vx = particles[index + 2];
+      const vy = particles[index + 3];
+
+      // updated position
+      const lon1 = lon0 + vx;
+      const lat1 = lat0 + vy;
+
+      // converted to x/y pixel indexing
+      ([p0[0],p0[1]] = projection([lon0,lat0]));
+      ([p1[0],p1[1]] = projection([lon1,lat1]));
+
+      // check if valid
+      if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { return; }
+      if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { return; }
+
+      // add line to path
+      path.moveTo(p0[0], p0[1]);
+      path.lineTo(p1[0], p1[1]);
     });
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    context.stroke(path); // stroke the entire path at once
 
-    context.stroke();
   });
 
   // timing

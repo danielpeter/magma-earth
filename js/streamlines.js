@@ -33,6 +33,8 @@ let nLonSteps = 0, nLatSteps = 0;
 // constants
 const DEGREE_TO_RADIAN = Math.PI / 180;
 
+// pre-allocate vector
+const vector = new Float32Array(2);
 
 // Initialize streamlines
 function initializeStreamlines() {
@@ -129,11 +131,10 @@ function createPath(n) {
   // moves points according to vector field:
   //   vx - x direction == lon
   //   vy - y direction == lat
-  let vx, vy;
-  ({ vx,vy } = vectorField.getVectorField(lon, lat));
+  vectorField.getVectorField(lon, lat, vector);
 
   // check if valid
-  if (!vx || !vy){ return; }
+  if (!vector[0] || !vector[1]){ return; }
 
   // or simple vector field
   //const lonRad = lon * DEGREE_TO_RADIAN;
@@ -144,7 +145,7 @@ function createPath(n) {
   // check velocity
   if (! useRegularLocations) {
     // if particle doesn't move, re-create path
-    const norm = (vx*vx + vy*vy);
+    const norm = (vector[0]*vector[0] + vector[1]*vector[1]);
     if (norm == 0.0) { createPath(n); }
   }
 
@@ -153,19 +154,19 @@ function createPath(n) {
     const i = n * numPathLength + m;
 
     // add streamline position
-    streamlines[i * 4] = lon;     // x or lon
-    streamlines[i * 4 + 1] = lat; // y or lat
-    streamlines[i * 4 + 2] = vx;  // vx
-    streamlines[i * 4 + 3] = vy;  // vy
+    streamlines[i * 4] = lon;            // x or lon
+    streamlines[i * 4 + 1] = lat;        // y or lat
+    streamlines[i * 4 + 2] = vector[0];  // vx
+    streamlines[i * 4 + 3] = vector[1];  // vy
 
     // updates position
-    lon += vx;
-    lat += vy;
+    lon += vector[0];
+    lat += vector[1];
 
     // updates velocity direction
-    ({ vx,vy } = vectorField.getVectorField(lon, lat));
+    vectorField.getVectorField(lon, lat, vector);
     // check if valid
-    if (!vx || !vy){ return; }
+    if (!vector[0] || !vector[1]){ return; }
   }
 }
 

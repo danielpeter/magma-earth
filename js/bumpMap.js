@@ -18,7 +18,7 @@ const ADD_BUMPMAP = true;
 const ADD_CONTOURS = false;
 
 // factor to scale alpha of bump map texture
-const BUMPMAP_STRENGTH = 0.7;
+const BUMPMAP_ALPHA = 0.6;
 
 // hillshading
 const ADD_HILLSHADE = true;
@@ -383,9 +383,6 @@ function updateBumpMap(projection,width,height,visiblePoints,dx,dy){
         //if (val < 0.0) { val = 0.0; }
         //if (val > 1.0) { val = 1.0; }
 
-        // strength scaling
-        val *= BUMPMAP_STRENGTH;
-
         // sets new scaled brightness value
         point[2] = val;
     });
@@ -681,16 +678,6 @@ function getPointColor(brightness) {
   //const color = d3.interpolatePuBu(1 - brightness);
   const color = d3.interpolateGreys(1 - brightness); // from 0 == white to 1 == black
 
-  // add overall alpha to bump map texture - this will increase rendering time... will scale brightness instead
-  //if (BUMPMAP_STRENGTH < 1.0) {
-  //  color = d3.color(color).copy({opacity: BUMPMAP_STRENGTH});
-  //}
-
-  // discrete
-  //const colorScale = d3.scaleOrdinal(d3.schemePuBuGn[8]); // not working...
-  //const colorScale = d3.scaleSequential(d3.interpolateBlues);
-  //const color = colorScale(1-brightness);
-
   return color;
 }
 
@@ -709,6 +696,9 @@ function drawBumpMap(projection, context){
   //context.drawImage(bumpMapImage, 0, 0, width, height);
 
   projection.clipAngle(90);
+
+  // add global transparency
+  context.globalAlpha = BUMPMAP_ALPHA;
 
   // draw texture
   pointsView.forEach(point => {
@@ -729,6 +719,9 @@ function drawBumpMap(projection, context){
       context.lineTo(ix + dxSampling, iy);
       context.stroke();
   });
+
+  // Reset the globalAlpha to 1.0 (fully opaque) for future operations
+  context.globalAlpha = 1.0;
 
   console.timeEnd('drawBumpMap');
 }
