@@ -244,10 +244,14 @@ function updateVisiblePoints(projection,width,height){
   if (visiblePoints.length == 0) return;
 
   // bumpMap
-  bumpMap.updateBumpMap(projection,width,height,visiblePoints,dx,dy);
+  if (state.showBumpMap) {
+    bumpMap.updateBumpMap(projection,width,height,visiblePoints,dx,dy);
+  }
 
   // vector field texture map
-  vectorField.updateVectorField(projection,width,height,visiblePoints,dx,dy);
+  if (state.showVectorField) {
+    vectorField.updateVectorField(projection,width,height,visiblePoints,dx,dy);
+  }
 
   console.timeEnd('updateVisiblePoints');
 }

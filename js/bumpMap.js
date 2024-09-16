@@ -133,18 +133,12 @@ function createBumpMapWorker(imageData, width, height) {
         }
 
         // send progress on the window object
-        let progress = 0;
         let text = '';
-
         if (ADD_HILLSHADE) {
-          progress = 50;
           text = 'bumpDone';
         } else {
-          progress = 100;
           text = 'bumpDone - all done';
         }
-        window.dispatchEvent(new CustomEvent('progress', { detail: progress }));
-
         // update view
         // Dispatch custom up event on the window object
         window.dispatchEvent(new CustomEvent('update',{ detail: text }));
@@ -156,9 +150,6 @@ function createBumpMapWorker(imageData, width, height) {
 
         // store data
         hillshadeElevationData = message.hillshadeElevationData;
-
-        // progress on the window object
-        window.dispatchEvent(new CustomEvent('progress', { detail: 100 }));
 
         // update view
         // Dispatch custom up event on the window object

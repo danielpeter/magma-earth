@@ -20,6 +20,9 @@ const ADD_VECTORFIELD = true;
 // contouring
 const ADD_CONTOURS = true;
 
+// streamlines
+const ADD_STREAMLINES = false;
+
 let scalarData = null; // scalar from image gray scale values
 let vectorData = null; // computed gradient vector
 let scalarMapWidth = 0, scalarMapHeight = 0;
@@ -219,7 +222,9 @@ function createVectorFieldWorker(imageData, width, height) {
         vectorData = message.vectorData;
 
         // create streamlines
-        streamlines.initializeStreamlines();
+        if (ADD_STREAMLINES) {
+          streamlines.initializeStreamlines();
+        }
 
         // create particles
         particles.initializeParticles();

@@ -118,11 +118,19 @@ structure
     display: flex;
     flex-direction: column;
 }
+
 .fill-screen {
     position: absolute;
     top: 0;
     left: 0;
     margin: auto;
+}
+
+.no-js-message {
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 20px;
 }
 
 /* -------------------------------------------------------------

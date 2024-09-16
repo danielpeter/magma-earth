@@ -55,6 +55,12 @@ function getCurrentViewSize(){
   return { width, height };
 }
 
+function isMobileDevice() {
+  return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
+}
+const isMobile = isMobileDevice();
+if (isMobile) console.log('[mobile version]');
+
 // set canvas size
 ({ width, height} = getCurrentViewSize());
 d3.selectAll(".fill-screen").attr("width", width).attr("height", height);
@@ -100,7 +106,14 @@ vectorField.setupVectorField().then(() => {
 // topography image
 //-------------------------------
 
-bumpMap.createBumpMap();
+if (isMobile) {
+  // mobile version
+  // no bump map texture rendering for now - too heavy for mobiles
+  renderer.state.showBumpMap = false;
+} else {
+  // setup bump map texture
+  bumpMap.createBumpMap();
+}
 
 //-------------------------------
 // view updates
@@ -930,8 +943,41 @@ function onUpdate(event) {
 
   // bump map will add an "all done" to the message to indicate it finished processing
   let message = event.detail;
+
+  // indicate progress
+  let progress = progressBar_progress;
+  if (message.includes("bumpDone")) {
+    if (message.includes("all done")) {
+      progress = 100;
+    } else {
+      progress = 50;
+    }
+    window.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+  }
+
+  if (message.includes("hillshadeDone")) {
+    if (message.includes("all done")) {
+      if (progress < 100) {
+        progress = 100;
+        window.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+      }
+    }
+  }
+
+  // mobile version has no bump map texture loads - listen to contours
+  if (isMobile){
+    if (message.includes("contoursDone")){
+      if (progress < 100) {
+        progress = 100;
+        window.dispatchEvent(new CustomEvent('progress', { detail: progress }));
+      }
+    }
+  }
+
   // check for "all done" to start animation
-  if (message.includes("all done") || (progressBar_progress >= 100 && vectorField.isGradientValid())) {
+  if (message.includes("all done") ||
+      (progressBar_progress >= 100 && vectorField.isGradientValid()) ||
+      (isMobile && message.includes("contoursDone"))) {
     // start animation when gradient field done
     startAnimation();
   }
@@ -960,8 +1006,6 @@ function onProgress(event){
 
   // check if all done
   if (progressBar_progress == 100){
-    // stop the interval timer
-    interval.stop();
     // remove progress bar
     removeProgressBar();
   }
@@ -1001,6 +1045,9 @@ const progressText = d3.select('#navigation')
 
 // Simulate loading or processing data
 function showProgressBar(progress) {
+  // check
+  if (!progressBar || progressBar_progress > 100) return;
+
   // Update the width of the progress bar based on the current progress
   const target = progressBar_x0 + (progress / 100) * progressBar_width;
 
@@ -1056,8 +1103,6 @@ const interval = d3.interval(function() {
   // Stop the interval when progress reaches 100%
   if (progressBar_progress >= 100) {
     interval.stop();  // Stop the interval
-    // remove progress bar
-    removeProgressBar();
   }
 }, 1000);  // Update every 1 second (1000ms)
 
