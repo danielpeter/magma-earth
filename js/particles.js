@@ -16,6 +16,7 @@ const ADD_PARTICLES = true;
 
 // total number of particles
 let numParticles = 10000;
+const USE_VARIABLE_NUMPARTICLES = false;
 
 // maximum particle age
 const maxAge = 80;
@@ -33,11 +34,17 @@ const ADAPT_PARTICLESIZE = false; // adapt line width to zoom factor
 // blend color to fade out existing trails
 const blendColor = "rgba(0, 0, 0, 0.95)";
 
-let bounds = {}; // lon/lat area for particles
+// quantized color scale for color buckets
+let colorScale = null;
+let colorList = null;
+let colorBuckets = null;
+const NUM_COLORS = 10; // number of quantized colors
+
+let bounds = {};    // lon/lat area for particles
+let vCenter = null; // position vector for center point
 
 // constants
 const DEGREE_TO_RADIAN = Math.PI / 180;
-
 
 // Initialize particles
 function initializeParticles() {
@@ -61,6 +68,33 @@ function initializeParticles() {
   for (let i = 0; i < numParticles; i++) {
     createParticle(i);
   }
+
+  // color buckets
+  // instead of drawing each particle with its own path, style & stroke,
+  // we use collective buckets for the same style such that a single path & stroke command can be executed per bucket
+  //
+  // Create a quantized color scale with 10 discrete steps
+  const startColor = "rgba(155, 155, 155, 0.4)";
+  const endColor = "rgba(255, 255, 155, 0.4)";
+
+  // interpolator
+  const colorInterpolator = d3.interpolateRgb(startColor, endColor);
+
+  // scale
+  colorScale = d3.scaleQuantize()
+                        .domain([0.0, 1.0])    // normalized velocity range
+                        .range(d3.quantize(colorInterpolator, NUM_COLORS));
+
+  // Get the list of all possible colors from the color scale
+  colorList = colorScale.range();
+
+  // Create an object to store arrays of particles grouped by color
+  colorBuckets = {};
+
+  // Pre-initialize the buckets with empty arrays for each color
+  colorList.forEach(color => {
+    colorBuckets[color] = [];  // Create an empty array for each color
+  });
 }
 
 function createParticle(i) {
@@ -237,26 +271,28 @@ function updateParticles(projection,width,height) {
   // updates particle area
   determineBoundsLonLat(projection,width,height);
 
-  // estimate number of particles based on window size
-  let estimate = 10 * Math.max(width,height);
-  console.log(`updateParticles: numParticles ${numParticles} estimate window size ${estimate}`);
-
-  // estimate based on bounds range
-  estimate = (bounds.lonMax - bounds.lonMin) * (bounds.latMax - bounds.latMin);
-  console.log(`updateParticles: numParticles ${numParticles} estimate bounds range ${estimate}`);
-
   // adapt number of particles to view range
-  if (estimate > 20000) {
-    numParticles = 20000;
-  } else {
-    numParticles = 10000;
-  }
+  if (USE_VARIABLE_NUMPARTICLES) {
+    // estimate number of particles based on window size
+    let estimate = 10 * Math.max(width,height);
+    console.log(`updateParticles: numParticles ${numParticles} estimate window size ${estimate}`);
 
-  // check if we need to recreate the array
-  if (particles.length != numParticles * 5) {
-    console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
-    // re-create new array
-    particles = new Float32Array(numParticles * 5); // x, y, vx, vy, age
+    // estimate based on bounds range
+    estimate = (bounds.lonMax - bounds.lonMin) * (bounds.latMax - bounds.latMin);
+    console.log(`updateParticles: numParticles ${numParticles} estimate bounds range ${estimate}`);
+
+    if (estimate > 20000) {
+      numParticles = 20000;
+    } else {
+      numParticles = 10000;
+    }
+
+    // check if we need to recreate the array
+    if (particles.length != numParticles * 5) {
+      console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
+      // re-create new array
+      particles = new Float32Array(numParticles * 5); // x, y, vx, vy, age
+    }
   }
 
   // creates new particles in this updated view range
@@ -264,9 +300,29 @@ function updateParticles(projection,width,height) {
     createParticle(i);
   }
 
+  // hemisphere visibility
+  // we'll use the dot-product between the center point vector and the pixel vectors to determine the visibility
+  // todo: better ways to avoid this check?
+  vCenter = null;
+  // determine lon/lat of center point
+  const ix = Math.floor(width * 0.5);
+  const iy = Math.floor(height * 0.5);
+  const p = projection.invert([ix,iy]);
+  // check if valid
+  if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
+
+  // radial vector
+  let latRad, lonRad;
+  // center vector
+  lonRad = p[0] * DEGREE_TO_RADIAN;
+  latRad = p[1] * DEGREE_TO_RADIAN;
+  vCenter = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+
   //console.timeEnd('updateParticles');
 }
 
+// debug timing
+//let debugCount = 0;
 
 function moveParticles() {
   // move particle positions & age
@@ -278,7 +334,8 @@ function moveParticles() {
   if (particles == null) return;
   if (particles.length == 0) return;
 
-  //console.time('moveParticles');
+  // timing
+  //if (debugCount < 10) console.time('moveParticles');
   //console.log(`moveParticles: particles ${particles.length}`);
 
   for (let i = 0; i < particles.length; i++) {
@@ -324,68 +381,46 @@ function moveParticles() {
       particles[index + 4] = age;
     }
   }
-  //console.timeEnd('moveParticles');
+
+  // timing
+  //if (debugCount < 10) console.timeEnd('moveParticles');
 }
 
 // draw particles
-function drawParticles(projection, context) {
+function drawParticles(projection, context, width, height) {
   // checks if anything to do
   if (! ADD_PARTICLES) return;
 
   // check if particle array is valid
   if (particles == null) return;
 
-  //console.time('drawParticles');
+  // check center point vector
+  if (vCenter == null) return;
+
+  // timing
+  //if (debugCount < 20) console.time('drawParticles');
   //console.log(`drawParticles: particles ${particles.length}`);
 
-  // bounds
-  const width = context.canvas.width;
-  const height = context.canvas.height;
-
   // Fade existing particle trails.
-  function fadePreviousParticles() {
-    // current blend mode
-    var prev = context.globalCompositeOperation;
-
-    // new blend mode (keep parts of the existing content that overlap with the new drawing)
-    context.globalCompositeOperation = "destination-in";
-
-    context.fillStyle = blendColor; // to fade out existing trails
-    context.fillRect(0, 0, width, height);
-
-    // reset previous blend mode
-    context.globalCompositeOperation = prev;
-  }
-
-  fadePreviousParticles();
+  // current blend mode
+  const prev = context.globalCompositeOperation;
+  // new blend mode (keep parts of the existing content that overlap with the new drawing)
+  context.globalCompositeOperation = "destination-in";
+  context.fillStyle = blendColor; // to fade out existing trails
+  context.fillRect(0, 0, width, height);
+  // reset previous blend mode
+  context.globalCompositeOperation = prev;
 
   // draw updated particles
   // hemisphere check
   function isPointVisibleHemisphere(v0,v1) {
     // dotProduct is > 0 for points in same hemisphere
     const dotProduct = v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];
-    return (dotProduct >= 0.0);
+    return (dotProduct > 0.0);
   }
 
-  // determine lon/lat of center point
-  const ix = Math.floor(width * 0.5);
-  const iy = Math.floor(height * 0.5);
-
-  const p = projection.invert([ix,iy]);
-  // check if valid
-  if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
-
-  // radial vector
-  let latRad, lonRad;
-
-  // center vector
-  lonRad = p[0] * DEGREE_TO_RADIAN;
-  latRad = p[1] * DEGREE_TO_RADIAN;
-  const vCenter = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
-
-  let lineWidth = particleSize;
-
   // determine line width based on zoom factor
+  let lineWidth = particleSize;
   if (ADAPT_PARTICLESIZE) {
     let k = 1.0, scaleZoom = 1.0;
     const transform = d3.zoomTransform(d3.select("#navigation").node());
@@ -401,90 +436,123 @@ function drawParticles(projection, context) {
 
   projection.clipAngle(90);
 
+  // Pre-initialize the buckets with empty arrays for each color
+  colorList.forEach(color => {
+    colorBuckets[color].length = 0; // set length to zero to avoid costly garbage collection
+  });
+
+  // fill color buckets
   for (let i = 0; i < particles.length; i++) {
     const index = i * 5;
 
-    // initial position
-    // lon/lat positions
-    const lon0 = particles[index];
-    const lat0 = particles[index + 1];
+    // check particle age
+    if (particles[index + 4] < maxAge) {
+      // Draw particle
 
-    const vx = particles[index + 2];
-    const vy = particles[index + 3];
+      // initial position
+      // lon/lat positions
+      const lon0 = particles[index];
+      const lat0 = particles[index + 1];
 
-    // updated position
-    const lon1 = lon0 + vx;
-    const lat1 = lat0 + vy;
+      const vx = particles[index + 2];
+      const vy = particles[index + 3];
 
-    // check if start/end points are visible
-    // current point location vector
-    lonRad = lon0 * DEGREE_TO_RADIAN;
-    latRad = lat0 * DEGREE_TO_RADIAN;
-    const v0 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+      // updated position
+      const lon1 = lon0 + vx;
+      const lat1 = lat0 + vy;
 
-    lonRad = lon1 * DEGREE_TO_RADIAN;
-    latRad = lat1 * DEGREE_TO_RADIAN;
-    const v1 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+      // check if start/end points are visible
+      // current point location vector
+      const lonRad = lon0 * DEGREE_TO_RADIAN;
+      const latRad = lat0 * DEGREE_TO_RADIAN;
+      const v0 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
 
-    if(! isPointVisibleHemisphere(vCenter,v0)) { continue; }
-    if(! isPointVisibleHemisphere(vCenter,v1)) { continue; }
+      const lonRad1 = lon1 * DEGREE_TO_RADIAN;
+      const latRad1 = lat1 * DEGREE_TO_RADIAN;
+      const v1 = [ Math.cos(latRad1) * Math.cos(lonRad1), Math.cos(latRad1) * Math.sin(lonRad1), Math.sin(latRad1) ];
 
-    // converted to x/y pixel indexing
-    const p0 = projection([lon0,lat0]);
-    const p1 = projection([lon1,lat1]);
+      if(! isPointVisibleHemisphere(vCenter,v0)) { continue; }
+      if(! isPointVisibleHemisphere(vCenter,v1)) { continue; }
 
-    // check if valid
-    if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { continue; }
-    if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { continue; }
+      // converted to x/y pixel indexing
+      const p0 = projection([lon0,lat0]);
+      const p1 = projection([lon1,lat1]);
 
-    // line points
-    const [x0,y0] = p0;
-    const [x1,y1] = p1;
+      // check if valid
+      if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { continue; }
+      if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { continue; }
 
-    // check if point is visible area
-    // doesn't work, returned [x,y] pixel positions are all within globe area...
-    //if (! isPointClose([x0,y0])) { continue; }
-    //if (! isPointClose([x1,y1])) { continue; }
+      // line points
+      const [x0,y0] = p0;
+      const [x1,y1] = p1;
 
-    // coloring
-    // velocity strength
-    const normSq = vx * vx + vy * vy;  // in [0,1]
-    // convert norm to rgb gray scale value
-    const val = 155 + Math.floor( (normSq / VELOCITY_FACTOR) * 100.0 );
-    // color with a yellow grade
-    const color = `rgba(${val}, ${val}, 155, 0.4)`;
+      // check if point is visible area
+      // doesn't work, returned [x,y] pixel positions are all within globe area...
+      //if (! isPointClose([x0,y0])) { continue; }
+      //if (! isPointClose([x1,y1])) { continue; }
 
-    /* not working, too heavy...
-    // color from vector field
-    let color = vectorField.getVectorFieldColorAtPoint(x0,y0);
-    //if (i < 5) console.log(`drawParticles: color ${color}`);
-    if (color != null) {
-      color = d3.color(color).brighter(); // brighten up color
-      color = d3.color(color).copy({opacity: 0.4}); // add transparency
-    } else {
-      color = '#F0F';
-    }
-    */
+      // velocity strength
+      const normSq = (vx * vx + vy * vy) / VELOCITY_FACTOR;  // in [0,1]
 
-    // age
-    const age = particles[index + 4];
+      // coloring
+      // convert norm to rgb gray scale value
+      //const val = 155 + Math.floor( normSq * 100.0 );
+      // color with a yellow grade
+      //const color = `rgba(${val}, ${val}, 155, 0.4)`;
 
-    // Draw particle
-    if (age < maxAge) {
-      //if (index == 0) console.log(`drawParticles: ${lon0}/${lat0} to ${lon1}/${lat1} age ${age} alpha ${alpha}`);
-      // line
-      context.beginPath();
-      context.strokeStyle = color;
-      context.lineWidth = lineWidth; //particleSize;
-      context.moveTo(x0, y0);
-      context.lineTo(x1, y1);
-      context.stroke();
-    }
+      /* not working, too heavy...
+      // color from vector field
+      let color = vectorField.getVectorFieldColorAtPoint(x0,y0);
+      //if (i < 5) console.log(`drawParticles: color ${color}`);
+      if (color != null) {
+        color = d3.color(color).brighter(); // brighten up color
+        color = d3.color(color).copy({opacity: 0.4}); // add transparency
+      } else {
+        color = '#F0F';
+      }
+      */
+
+      // Group particles by color
+      // Determine color based on velocity
+      const color = colorScale(normSq);
+
+      // If this color doesn't have a bucket yet, create an empty array for it
+      if (!colorBuckets[color]) {
+        colorBuckets[color] = [];
+      }
+
+      // Add the particle to the appropriate color bucket
+      colorBuckets[color].push([x0,y0,x1,y1]);
+    } // age
   }
 
-  //requestAnimationFrame(moveParticles);
+  // loop over color buckets and draw all particles with the same style with one stroke()
+  colorList.forEach(color => {
+    //if (debugCount < 20) { console.log(`drawParticles: color ${color} bucket ${colorBuckets[color].length}`);}
 
-  //console.timeEnd('drawParticles');
+    // particles with same color style
+    const bucketParticles = colorBuckets[color];
+    if (bucketParticles.length == 0) return;
+
+    // draw bucket
+    context.beginPath();
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth; //particleSize;
+
+    bucketParticles.forEach(([x0,y0,x1,y1]) => {
+      // line
+      context.moveTo(x0, y0);
+      context.lineTo(x1, y1);
+    });
+
+    context.stroke();
+  });
+
+  // timing
+  //if (debugCount < 20) {
+  //  console.timeEnd('drawParticles');
+  //  debugCount++;
+  //}
 }
 
 
