@@ -1,0 +1,151 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Afar"},
+      "geometry": {"type": "Point", "coordinates": [42.0, 12.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Yellowstone"},
+      "geometry": {"type": "Point", "coordinates": [-110.7, 44.4]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Azores"},
+      "_comment": "or [-28.0, 38.7]",
+      "geometry": {"type": "Point", "coordinates": [-28.0, 38.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Canary Islands"},
+      "_comment": "or [-16.6, 28.0]",
+      "geometry": {"type": "Point", "coordinates": [-16.0, 28.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Cape Verde"},
+      "_comment": "or [-24.0, 15.0]",
+      "geometry": {"type": "Point", "coordinates": [-23.5, 15.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Bermuda"},
+      "_comment": "or [-64.75, 32.3]",
+      "geometry": {"type": "Point", "coordinates": [-64.8, 32.3]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Madeira"},
+      "geometry": {"type": "Point", "coordinates": [-17.0, 32.8]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Iceland"},
+      "_comment": "or [-17.3, 64.4]",
+      "geometry": {"type": "Point", "coordinates": [-21.9, 64.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "St. Helena"},
+      "geometry": {"type": "Point", "coordinates": [-5.7, -15.9]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Ascension Island"},
+      "geometry": {"type": "Point", "coordinates": [-14.4, -7.9]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Tristan da Cunha"},
+      "geometry": {"type": "Point", "coordinates": [-12.3, -37.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Galapagos"},
+      "geometry": {"type": "Point", "coordinates": [-91.0, -0.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Hawaii"},
+      "_comment": "or [-154.6, 20.6]",
+      "geometry": {"type": "Point", "coordinates": [-155.5, 19.6]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Reunion"},
+      "geometry": {"type": "Point", "coordinates": [55.7, -21.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Easter Island"},
+      "_comment": "or [-108.6, -27.0]",
+      "geometry": {"type": "Point", "coordinates": [-109.4, -27.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Samoa"},
+      "_comment": "or [-169.6, -14.0]",
+      "geometry": {"type": "Point", "coordinates": [-172.1, -13.8]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Louisville"},
+      "_comment": "or [-139.3, -50.1]",
+      "geometry": {"type": "Point", "coordinates": [-139.0, -50.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Macdonald"},
+      "_comment": "or [-140.4, -28.5]",
+      "geometry": {"type": "Point", "coordinates": [-150.0, -29.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Kerguelen"},
+      "geometry": {"type": "Point", "coordinates": [69.5, -49.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Caroline Islands"},
+      "_comment": "or [164.0, 5.2]",
+      "geometry": {"type": "Point", "coordinates": [151.0, 7.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Bouvet"},
+      "geometry": {"type": "Point", "coordinates": [1.0, -54.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Bowie"},
+      "geometry": {"type": "Point", "coordinates": [-135.6, 53.5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Cobb"},
+      "geometry": {"type": "Point", "coordinates": [-130.0, 46.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Guadalupe"},
+      "geometry": {"type": "Point", "coordinates": [-117.3, 29.0]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Pitcairn"},
+      "geometry": {"type": "Point", "coordinates": [-128.4, -24.7]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Socorro"},
+      "geometry": {"type": "Point", "coordinates": [-111.0, 19.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Tahiti"},
+      "geometry": {"type": "Point", "coordinates": [-148.1, -17.7]}
+    }
+  ]
+}
