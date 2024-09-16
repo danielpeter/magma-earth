@@ -49,8 +49,8 @@ function getCurrentViewSize(){
   height = w.innerHeight || d.clientHeight || b.clientHeight;
 
   // minimum size 500 px
-  if (width < 500) { width = 500; }
-  if (height < 500) { height = 500; }
+  //if (width < 500) { width = 500; }
+  //if (height < 500) { height = 500; }
 
   return { width, height };
 }
