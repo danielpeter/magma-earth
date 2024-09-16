@@ -5,9 +5,6 @@
 * MIT License - https://opensource.org/license/mit
 ***/
 
-/* default style sheet */
-@import url("http://fonts.googleapis.com/css?family=Raleway|Exo+2|Lato|Open+Sans");
-
 /* -------------------------------------------------------------
 
 versioning:
@@ -43,8 +40,6 @@ table, caption, tbody, tfoot, thead, tr, th, td {
 }
 
 html {
-    /* Corrects text resizing oddly in IE6/7 when body font-size is set using em units http://clagnut.com/blog/348/#c790 */
-    /*font-size: 62.5%;*/
     /* Keeps page centered in all browsers regardless of content height */
     overflow-y: scroll;
     /* Prevents iOS text size adjust after orientation change, without disabling user zoom */
