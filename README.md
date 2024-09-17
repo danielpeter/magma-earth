@@ -10,14 +10,14 @@ Currently supported models:
 
 | Model |   |
 |-------|---|
-| SGLOBE-rani[^*] | [Chang et al. (2015) doi:10.1002/2014JB011824](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2014JB011824)|
-| S40RTS[^*]      | [Ritsema et al. (2011) doi:10.1111/j.1365-246X.2010.04884.x](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1365-246X.2010.04884.x) |
+| SGLOBE-rani<sup>*</sup> | [Chang et al. (2015) doi:10.1002/2014JB011824](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2014JB011824)|
+| S40RTS<sup>*</sup>      | [Ritsema et al. (2011) doi:10.1111/j.1365-246X.2010.04884.x](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1365-246X.2010.04884.x) |
 | SAVANI        | [Auer et al. (2014) doi:10.1002/2013JB010773](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1002/2013JB010773) |
 | SPani-S       | [Tesoniero et al. (2015) doi:10.1002/2015JB012026](https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2015JB012026/abstract;jsessionid=807CA5C22CFE0879DE2CB66CCA80A7C0.f04t03)|
 | TX2015        | [Lu and Grand (2016) doi:10.1093/gji/ggw072](https://academic.oup.com/gji/article/205/2/1074/691474?login=false)|
 _____________
 
-[^*] denotes models implemented in [SPECFEM3D_GLOBE](https://github.com/SPECFEM/specfem3d_globe)
+<sup>*</sup> denotes models implemented in [SPECFEM3D_GLOBE](https://github.com/SPECFEM/specfem3d_globe)
 
 
 ## Flow animation for tomographic seismic images
