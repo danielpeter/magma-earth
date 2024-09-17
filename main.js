@@ -56,8 +56,6 @@ function getCurrentViewSize(){
 }
 
 function isMobileDevice() {
-  //debug
-  //return true;
   // check mobile agents
   return (/Mobi|Android|iemobile|ipad|iphone|ipod|opera mini|webos/i).test(navigator.userAgent);
 }
@@ -86,6 +84,14 @@ const path = d3.geoPath()
 
 // animation rendering
 const contextAnimation = d3.select("#animation").node().getContext("2d");
+
+// turn off smoothing on animation canvas
+//try {
+//  // Disable image smoothing in JavaScript
+//  contextAnimation.imageSmoothingEnabled = false;
+//} catch(error) {
+//  console.error(error);
+//}
 
 // view zoom-in
 let transform = d3.zoomIdentity;
@@ -125,6 +131,7 @@ if (isMobile) {
 
 // flag to indicate transition is rendering to avoid interference of full view updates
 let viewUpdatesTransition = false;
+let viewUpdatesZoom = false;
 let modelGroup = null;
 
 //-------------------------------
@@ -179,38 +186,36 @@ Promise.all(promises).then((data) => {
     quakes.sort((a, b) => d3.descending(a.properties.time, b.properties.time));
 
     // too slow...
-    /*
-    // multipolygon object w/ geo circles for SVG drawing
-    const quakes = (() => {
-      const coordinates = [];
-      events.forEach(d => {
-        let radiusDeg = 0.2; // degree
-        const magnitude = d.properties.mag;
-        if (magnitude != null) radiusDeg *= magnitude;
-        const [lon,lat,depth] = d.geometry.coordinates;
-        // since tomo slices are at 150 km depth, let's focus on earthquakes in that depth range
-        //if (depth >= 125 && depth <= 175)
-        const circle = d3.geoCircle().center([lon,lat]).radius(radiusDeg).precision(10);
-        // stores coordinates
-        coordinates.push(circle().coordinates);
-      });
-      return {type: "MultiPolygon", coordinates};
-    })();
-    //console.log('quakes:',quakes);
-    // merged - but too slow...
-    svg.append("g")
-        .attr('id','earthquakes-gcmt')
-        .attr("fill", "#888")
-        .attr("fill-opacity", 0.2)
-        .attr("stroke", "#888")
-        .attr("stroke-opacity", 0.5)
-        .attr("stroke-width", 0.5)
-        .selectAll('path')
-        .data([quakes])
-        .enter()
-        .append("path")
-        .attr("d", d => { pathGenerator(d)});
-    */
+    //// multipolygon object w/ geo circles for SVG drawing
+    //const quakes = (() => {
+    //  const coordinates = [];
+    //  events.forEach(d => {
+    //    let radiusDeg = 0.2; // degree
+    //    const magnitude = d.properties.mag;
+    //    if (magnitude != null) radiusDeg *= magnitude;
+    //    const [lon,lat,depth] = d.geometry.coordinates;
+    //    // since tomo slices are at 150 km depth, let's focus on earthquakes in that depth range
+    //    //if (depth >= 125 && depth <= 175)
+    //    const circle = d3.geoCircle().center([lon,lat]).radius(radiusDeg).precision(10);
+    //    // stores coordinates
+    //    coordinates.push(circle().coordinates);
+    //  });
+    //  return {type: "MultiPolygon", coordinates};
+    //})();
+    ////console.log('quakes:',quakes);
+    //// merged - but too slow...
+    //svg.append("g")
+    //    .attr('id','earthquakes-gcmt')
+    //    .attr("fill", "#888")
+    //    .attr("fill-opacity", 0.2)
+    //    .attr("stroke", "#888")
+    //    .attr("stroke-opacity", 0.5)
+    //    .attr("stroke-width", 0.5)
+    //    .selectAll('path')
+    //    .data([quakes])
+    //    .enter()
+    //    .append("path")
+    //    .attr("d", d => { pathGenerator(d)});
 
     // add quakes as circle objects
     svg.append("g")
@@ -505,30 +510,31 @@ Promise.all(promises).then((data) => {
           })
         .on("end.render", () => {
             //console.log(`zoom: end.render: zoomStartedTime ${zoomStartedTime} now ${d3.now()}`);
+
             // checks if zoom event had enough duration, otherwise it was just a single click...
             const reactionTime = 10; // in millisec
-            if ((d3.now() - zoomStartedTime) < reactionTime) { return; }
-
-            // check if projection changed?
-            // a long click down will trigger an update, even if the projection didn't change
-            // however, the check here won't work if the view is zoomed in already and the double click is used to move left/right
-            /*
-            //console.log(`zoom: end.render: scale zoomStartedProj ${zoomStartedProj.scale} projection ${projection.scale()}`);
-            const tolerance = 1.e-5;
-            if (Math.abs(projection.scale() - zoomStartedProj.scale) < tolerance){
-              const rdiff0 = Math.abs(projection.rotate()[0] - zoomStartedProj.rotate[0]);
-              const rdiff1 = Math.abs(projection.rotate()[1] - zoomStartedProj.rotate[1]);
-              const rdiff2 = Math.abs(projection.rotate()[2] - zoomStartedProj.rotate[2]);
-              //console.log(`zoom: end.render: rotate diff ${rdiff0} ${rdiff1} ${rdiff2} zoomStartedProj ${zoomStartedProj.rotate} projection ${projection.rotate()}`);
-              if (Math.max(rdiff0,rdiff1,rdiff2) < tolerance) { return; }
+            if ((d3.now() - zoomStartedTime) > reactionTime) {
+              // check if projection changed?
+              // a long click down will trigger an update, even if the projection didn't change
+              // however, the check here won't work if the view is zoomed in already and the double click is used to move left/right
+              ////console.log(`zoom: end.render: scale zoomStartedProj ${zoomStartedProj.scale} projection ${projection.scale()}`);
+              //const tolerance = 1.e-5;
+              //if (Math.abs(projection.scale() - zoomStartedProj.scale) < tolerance){
+              //  const rdiff0 = Math.abs(projection.rotate()[0] - zoomStartedProj.rotate[0]);
+              //  const rdiff1 = Math.abs(projection.rotate()[1] - zoomStartedProj.rotate[1]);
+              //  const rdiff2 = Math.abs(projection.rotate()[2] - zoomStartedProj.rotate[2]);
+              //  //console.log(`zoom: end.render: rotate diff ${rdiff0} ${rdiff1} ${rdiff2} zoomStartedProj ${zoomStartedProj.rotate} projection ${projection.rotate()}`);
+              //  if (Math.max(rdiff0,rdiff1,rdiff2) < tolerance) { return; }
+              //}
+              // update visible points
+              renderer.updateVisiblePoints(projection, width, height);
+              // rendering
+              renderer.render(projection, contextGlobe, path, transform, land, borders, plates, quakes, true);
             }
-            */
-            // update visible points
-            renderer.updateVisiblePoints(projection, width, height);
-            // rendering
-            renderer.render(projection, contextGlobe, path, transform, land, borders, plates, quakes, true);
+            // resume animation rendering
+            viewUpdatesZoom = false;
             // restart animation
-            restartAnimation();
+            //restartAnimation();
           }))
     .call(() => {
       //console.log(`navigation: call()`);
@@ -574,6 +580,7 @@ Promise.all(promises).then((data) => {
       zoomStartedProj = { scale: projection.scale(), rotate: projection.rotate() };
 
       // stop animation
+      viewUpdatesZoom = true;
       //stopAnimation();
       //renderer.state.showParticles = false;
 
@@ -623,29 +630,28 @@ Promise.all(promises).then((data) => {
     });
   }
 
-  /* not used...
-  function onZoom(event){
-    console.log(`zoom: event ${event} ${event.transform}`);
-
-    canvas.attr("transform", event.transform);
-
-    const pointer = d3.pointer(event,this);
-    const p = projection.invert(pointer);
-    console.log(`onZoom: pointer ${pointer} position p = ${p}`);
-
-    if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
-
-    // set current transform
-    transform = event.transform;
-
-    // no translation, only scale (transform.k)
-    transform.x = 0;
-    transform.y = 0;
-
-    // update view
-    renderer.render(projection, context, path, transform, land, borders, plates, quakes, true);
-  }
-  */
+  // not used...
+  //function onZoom(event){
+  //  console.log(`zoom: event ${event} ${event.transform}`);
+  //
+  //  canvas.attr("transform", event.transform);
+  //
+  //  const pointer = d3.pointer(event,this);
+  //  const p = projection.invert(pointer);
+  //  console.log(`onZoom: pointer ${pointer} position p = ${p}`);
+  //
+  //  if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
+  //
+  //  // set current transform
+  //  transform = event.transform;
+  //
+  //  // no translation, only scale (transform.k)
+  //  transform.x = 0;
+  //  transform.y = 0;
+  //
+  //  // update view
+  //  renderer.render(projection, context, path, transform, land, borders, plates, quakes, true);
+  //}
 
 }); // Promises
 
@@ -669,6 +675,9 @@ function updateFullView(){
 
   // check flag to see if transition is still rendering
   if (viewUpdatesTransition) return;
+
+  // check flag to see if transition is still rendering
+  if (viewUpdatesZoom) return;
 
   // new drawing
   clearContexts();
@@ -760,10 +769,13 @@ function doAnimationFrame(currentTime) {
 
     // check if vector field ready
     if (vectorField.isGradientValid()) {
-      // move particles
-      particles.moveParticles();
-      // render animation canvas
-      particles.drawParticles(projection, contextAnimation, width, height);
+      // render when no zooming/transitioning on globe
+      if (! (viewUpdatesTransition || viewUpdatesZoom) ) {
+        // move particles
+        particles.moveParticles();
+        // render animation canvas
+        particles.drawParticles(projection, contextAnimation, width, height);
+      }
     }
 
     // Reset the lastTime
@@ -788,65 +800,64 @@ function doAnimationFrame(currentTime) {
   }
 }
 
-/* looks too choppy ...
-// ticker
-let animationTicker = null;
-
-function startAnimation(){
-  console.log(`startAnimation:`);
-  if (animationTicker == null) {
-    console.log(`startAnimation: create ticker`);
-    animationTicker = d3.interval(onAnimationTicker, tickDuration, 2000);  // start after 200 ms
-  }
-  // set start time
-  animationStartTime = d3.now();
-  // turn on particle rendering
-  //renderer.state.showParticles = true;
-}
-
-function stopAnimation(){
-  console.log(`stopAnimation:`);
-  if (animationTicker != null) {
-    animationTicker.stop();
-    animationTicker = null;
-  }
-}
-
-function restartAnimation(){
-  if (animationTicker != null) {
-    console.log(`restartAnimation: restart ticker`);
-    animationTicker.stop();
-    animationTicker = null;
-  }
-  console.log(`restartAnimation: re-create ticker`);
-  animationTicker = d3.interval(onAnimationTicker, tickDuration, 2000);  // start after 100 ms
-  // reset start time
-  animationStartTime = d3.now();
-  //renderer.state.showParticles = true;
-}
-
-function onAnimationTicker() {
-  //console.log(`onAnimationTicker: elapsed ${elapsed}`);
-  // move particles
-  //if (renderer.state.showParticles) {
-    // updates particle positions
-    particles.moveParticles();
-    // rendering
-    //renderer.render(projection, context, path, transform, land, borders, plates, quakes, true);
-    // only render to animation canvas
-    particles.drawParticles(projection, contextAnimation, width, height);
-  //}
-
-  const elapsed = d3.now() - animationStartTime;
-
-  // stop after 15 sec
-  if (elapsed > 15000) {
-    console.log(`onAnimationTicker: stop elapsed ${elapsed}`);
-    animationTicker.stop();
-    animationTicker = null;
-  }
-}
-*/
+// looks too choppy ...
+//// ticker
+//let animationTicker = null;
+//
+//function startAnimation(){
+//  console.log(`startAnimation:`);
+//  if (animationTicker == null) {
+//    console.log(`startAnimation: create ticker`);
+//    animationTicker = d3.interval(onAnimationTicker, tickDuration, 2000);  // start after 200 ms
+//  }
+//  // set start time
+//  animationStartTime = d3.now();
+//  // turn on particle rendering
+//  //renderer.state.showParticles = true;
+//}
+//
+//function stopAnimation(){
+//  console.log(`stopAnimation:`);
+//  if (animationTicker != null) {
+//    animationTicker.stop();
+//    animationTicker = null;
+//  }
+//}
+//
+//function restartAnimation(){
+//  if (animationTicker != null) {
+//    console.log(`restartAnimation: restart ticker`);
+//    animationTicker.stop();
+//    animationTicker = null;
+//  }
+//  console.log(`restartAnimation: re-create ticker`);
+//  animationTicker = d3.interval(onAnimationTicker, tickDuration, 2000);  // start after 100 ms
+//  // reset start time
+//  animationStartTime = d3.now();
+//  //renderer.state.showParticles = true;
+//}
+//
+//function onAnimationTicker() {
+//  //console.log(`onAnimationTicker: elapsed ${elapsed}`);
+//  // move particles
+//  //if (renderer.state.showParticles) {
+//    // updates particle positions
+//    particles.moveParticles();
+//    // rendering
+//    //renderer.render(projection, context, path, transform, land, borders, plates, quakes, true);
+//    // only render to animation canvas
+//    particles.drawParticles(projection, contextAnimation, width, height);
+//  //}
+//
+//  const elapsed = d3.now() - animationStartTime;
+//
+//  // stop after 15 sec
+//  if (elapsed > 15000) {
+//    console.log(`onAnimationTicker: stop elapsed ${elapsed}`);
+//    animationTicker.stop();
+//    animationTicker = null;
+//  }
+//}
 
 
 
@@ -905,34 +916,34 @@ function onResize() {
 }
 
 // get mouse click events - not used yet...
-/*
-d3.select("#navigation").on("mousedown", onMapClick);
-d3.select("#navigation").on("touchstart", onMapClick);
-// or on canvas elements
-//canvas.on("mousedown", onMapClick);
-//canvas.on("touchstart", onMapClick);
+//
+//d3.select("#navigation").on("mousedown", onMapClick);
+//d3.select("#navigation").on("touchstart", onMapClick);
+//// or on canvas elements
+////canvas.on("mousedown", onMapClick);
+////canvas.on("touchstart", onMapClick);
+//
+//function onMapClick(event) {
+//  // gets mouse position
+//  const pointer = d3.pointer(event,this);
+//  const p = projection.invert(pointer);
+//
+//  console.log(`[onMapClick]: pointer ${pointer} position p = ${p}`);
+//
+//  if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
+//
+//  // Can't apply transformations unless scale 1
+//  //if (transform.k !== 1) { return false; }
+//
+//  // rotate towards position p
+//  //stopAnimation();
+//  ////renderer.state.showParticles = false;
+//
+//  //transition(p);
+//  //restartAnimation();
+//  //renderer.state.showParticles = true;
+//}
 
-function onMapClick(event) {
-  // gets mouse position
-  const pointer = d3.pointer(event,this);
-  const p = projection.invert(pointer);
-
-  console.log(`[onMapClick]: pointer ${pointer} position p = ${p}`);
-
-  if (!p || isNaN(p[0]) || isNaN(p[1])) { return false; }
-
-  // Can't apply transformations unless scale 1
-  //if (transform.k !== 1) { return false; }
-
-  // rotate towards position p
-  //stopAnimation();
-  ////renderer.state.showParticles = false;
-
-  //transition(p);
-  //restartAnimation();
-  //renderer.state.showParticles = true;
-}
-*/
 
 
 //-------------------------------

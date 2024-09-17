@@ -29,7 +29,8 @@ let particles = null;
 const VELOCITY_FACTOR = 0.5; // slow down, relax - it's earth material
 
 // particle drawing
-const particleSize = 1;
+const particleSize = 1.0;
+
 const ADAPT_PARTICLESIZE = false; // adapt line width to zoom factor
 
 // blend color to fade out existing trails
@@ -39,16 +40,15 @@ const blendColor = "rgba(0, 0, 0, 0.95)";
 let colorScale = null;
 let colorList = null;
 let colorBuckets = null;
+
 const NUM_COLORS = 10; // number of quantized colors
 
+// view
 let bounds = {};    // lon/lat area for particles
 let vCenter = null; // position vector for center point
 
 // constants
 const DEGREE_TO_RADIAN = Math.PI / 180;
-
-// pre-allocate vector
-const vector = new Float32Array(2);
 
 // Initialize particles
 function initializeParticles() {
@@ -131,10 +131,13 @@ function createParticle(i) {
   // moves points according to vector field:
   //   vx - x direction == lon
   //   vy - y direction == lat
+  // pre-allocate vector
+  const vector = new Float32Array(2);
+
   vectorField.getVectorField(lon, lat, vector);
 
   // check if valid
-  if (!vector[0] || !vector[1]){ return; }
+  if (vector[0] == null || vector[1] == null) return;
 
   // scale velocities
   vector[0] *= VELOCITY_FACTOR; // vx
@@ -247,29 +250,27 @@ function updateParticles(projection,width,height) {
   //const width = context.canvas.width;
   //const height = context.canvas.height;
 
-  /*
   // Get the bounds of the visible area in geographic coordinates
-  const topLeft = projection.invert([0, 0]); // Pixel coordinates (0, 0) -> top-left
-  const bottomRight = projection.invert([width, height]); // Bottom-right
-
-  let lonMin = topLeft[0];
-  let lonMax = bottomRight[0];
-
-  let latMax = topLeft[1];
-  let latMin = bottomRight[1];
-
-  // makes sure min < max
-  if (lonMax < lonMin) {
-    const tmp = lonMin;
-    lonMin = lonMax;
-    lonMax = tmp;
-  }
-  if (latMax < latMin) {
-    const tmp = latMin;
-    latMin = latMax;
-    latMax = tmp;
-  }
-  */
+  //const topLeft = projection.invert([0, 0]); // Pixel coordinates (0, 0) -> top-left
+  //const bottomRight = projection.invert([width, height]); // Bottom-right
+  //
+  //let lonMin = topLeft[0];
+  //let lonMax = bottomRight[0];
+  //
+  //let latMax = topLeft[1];
+  //let latMin = bottomRight[1];
+  //
+  //// makes sure min < max
+  //if (lonMax < lonMin) {
+  //  const tmp = lonMin;
+  //  lonMin = lonMax;
+  //  lonMax = tmp;
+  //}
+  //if (latMax < latMin) {
+  //  const tmp = latMin;
+  //  latMin = latMax;
+  //  latMax = tmp;
+  //}
 
   // updates particle area
   determineBoundsLonLat(projection,width,height);
@@ -291,12 +292,13 @@ function updateParticles(projection,width,height) {
     //}
 
     // check pixel size limit 100 x 100 == 10,000
-    if (width * height < numParticles) numParticles = Math.floor(width * height * 0.7);
+    if (width * height * 0.7 < numParticles) numParticles = Math.floor(width * height * 0.7);
 
     // check if we need to recreate the array
     if (particles.length != numParticles * 5) {
-      //console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
+      console.log(`updateParticles: recreate numParticles * 5 = ${numParticles * 5} particles length = ${particles.length}`);
       // re-create new array
+      particles = null;
       particles = new Float32Array(numParticles * 5); // x, y, vx, vy, age
     }
   }
@@ -344,6 +346,9 @@ function moveParticles() {
   //if (debugCount < 10) console.time('moveParticles');
   //console.log(`moveParticles: particles ${particles.length}`);
 
+  // pre-allocate vector
+  const vector = new Float32Array(2);
+
   for (let i = 0; i < particles.length; i++) {
     const index = i * 5;
 
@@ -358,7 +363,7 @@ function moveParticles() {
     vectorField.getVectorField(lon, lat, vector);
 
     // check if valid
-    if (!vector[0] || !vector[1]){ return; }
+    if (vector[0] == null || vector[1] == null) continue;
 
     // scale velocities
     particles[index + 2] = vector[0] * VELOCITY_FACTOR;  // vx
@@ -444,8 +449,6 @@ function drawParticles(projection, context, width, height) {
   });
 
   // position vectors
-  const p0 = [0, 0];
-  const p1 = [0, 0];
   const v0 = [0, 0, 0];
   const v1 = [0, 0, 0];
 
@@ -466,7 +469,7 @@ function drawParticles(projection, context, width, height) {
       const vy = particles[index + 3];
 
       // velocity strength
-      const normSq = (vx * vx + vy * vy) / VELOCITY_FACTOR;  // in [0,1]
+      const norm = Math.sqrt(vx * vx + vy * vy) / VELOCITY_FACTOR;  // in [0,1]
 
       // updated position
       const lon1 = lon0 + vx;
@@ -526,7 +529,7 @@ function drawParticles(projection, context, width, height) {
 
       // Group particles by color
       // Determine color based on velocity
-      const color = colorScale(normSq);
+      const color = colorScale(norm);
 
       // If this color doesn't have a bucket yet, create an empty array for it
       //if (!colorBuckets[color]) { colorBuckets[color] = []; }
@@ -535,6 +538,9 @@ function drawParticles(projection, context, width, height) {
       colorBuckets[color].push(index);
     } // age
   }
+
+  let p0 = [0,0];
+  let p1 = [0,0];
 
   // loop over color buckets and draw all particles with the same style with one stroke()
   colorList.forEach(color => {
@@ -570,17 +576,26 @@ function drawParticles(projection, context, width, height) {
       const lat1 = lat0 + vy;
 
       // converted to x/y pixel indexing
-      ([p0[0],p0[1]] = projection([lon0,lat0]));
-      ([p1[0],p1[1]] = projection([lon1,lat1]));
+      p0 = projection([lon0,lat0]);
+      p1 = projection([lon1,lat1]);
 
       // check if valid
-      if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { return; }
+      if (!p0 || isNaN(p0[0]) || isNaN(p0[0])) { return; }
       if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { return; }
+
+      // check bounds
+      if (p0[0] < 0 || p0[0] >= width) { return;}
+      if (p0[1] < 0 || p0[1] >= height) { return;}
+
+      if (p1[0] < 0 || p1[0] >= width) { return;}
+      if (p1[1] < 0 || p1[1] >= height) { return;}
 
       // add line to path
       path.moveTo(p0[0], p0[1]);
       path.lineTo(p1[0], p1[1]);
     });
+
+    // draw
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
     context.stroke(path); // stroke the entire path at once

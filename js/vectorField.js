@@ -107,33 +107,28 @@ function getColorSelection() {
   return name;
 }
 
-
-
-/*
 // simple function example
-function getVectorField(lat, lon, vector) {
-  // Calculate the x and y components of the vector based on your desired field
-  const latRad = lat * (Math.PI / 180.0);
-  const lonRad = lon * (Math.PI / 180.0);
-  vector[0] = Math.sin(latRad) * Math.cos(lonRad);
-  vector[1] = Math.cos(latRad);
-  return vector;
-}
-*/
+//function getVectorField(lat, lon, vector) {
+//  // Calculate the x and y components of the vector based on your desired field
+//  const latRad = lat * (Math.PI / 180.0);
+//  const lonRad = lon * (Math.PI / 180.0);
+//  vector[0] = Math.sin(latRad) * Math.cos(lonRad);
+//  vector[1] = Math.cos(latRad);
+//  return;
+//}
 
-/*
-function loadImage(url) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-        img.src = url;
-    });
-}
-*/
+// loads image
+//function loadImage(url) {
+//    return new Promise((resolve, reject) => {
+//        const img = new Image();
+//        img.onload = () => resolve(img);
+//        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+//        img.src = url;
+//    });
+//}
 
 
-// Example usage:
+// creates vector field
 async function createVectorField() {
     try {
         //console.time('createVectorField');
@@ -317,22 +312,22 @@ function getVectorField(lon_in, lat_in, vector) {
   if (lat < -90.0) lat = -90.0;
   if (lat > 90.0) lat = 90.0;
 
-  const ix = Math.floor((lon + 180) / dlon); // lon index in [0,width-1]
-  const iy = Math.floor((90 - lat) / dlat);  // colat in [0,height-1]
+  const ix = Math.floor((lon + 180.0) / dlon); // lon index in [0,width-1]
+  const iy = Math.floor((90.0 - lat) / dlat);  // colat in [0,height-1]
 
   // gradient array data (float values)
   let index = iy * width + ix; // Calculate pixel index
 
   //console.log(`vectorField: lon/lat = ${lon}/${lat} width/height = ${width}/${height} ix/iy = ${ix}/${iy}`);
 
-  if (index < 0) { index = 0; }
-  if (index >= index_max) { index = index_max - 1; }
+  if (index < 0) index = 0;
+  if (index >= index_max) index = index_max - 1;
 
   // get gradient
   vector[0] = vectorData[index * 2 ];    // vx
   vector[1] = vectorData[index * 2 + 1]; // vy
 
-  return vector;
+  return;
 }
 
 //-------------------------------

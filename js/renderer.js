@@ -227,12 +227,11 @@ function updateVisiblePoints(projection,width,height){
       // check if point is visible area
       if (! isPointClose([ix,iy], width, height, scale)) { continue; }
 
-      const [lon,lat] = p; // lon = p[0];  lat = p[1];
-
+      // lon = p[0];  lat = p[1];
       // lon in [-180,180] -> x in [0,1]
-      const x = (lon + 180.0) / 360.0;
+      const x = (p[0] + 180.0) / 360.0;
       // lat in [90,-90] -> y in [0,1]
-      const y = (90.0 - lat) / 180.0;
+      const y = (90.0 - p[1]) / 180.0;
 
       // store point for updating bumpMap and vectorField textures
       visiblePoints.push([ix,iy,x,y]);

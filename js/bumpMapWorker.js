@@ -12,12 +12,6 @@
 // imports
 importScripts("./lib/d3.v7.min.js");
 
-// smoothing kernel size
-const KERNEL_SIZE = 1;
-
-// data
-let scalarArray = null;
-
 // message
 self.onmessage = function(event) {
   const message = event.data;
@@ -42,7 +36,7 @@ self.onmessage = function(event) {
       const hillshadeArray = processHillshade(bumpData, width, height);
 
       // Send the processed image data back to the main thread
-      self.postMessage({type: 'hillshadeDone', hillshadeElevationData: hillshadeArray});
+      self.postMessage({type: 'hillshadeDone', hillshadeData: hillshadeArray});
       break;
     }
     default:
@@ -90,6 +84,9 @@ function processBumpMap(imageData, width, height){
   console.log(`createBumpMap: data size = ${scalarArray.length} = ${width*height} : min/max = ${min}/${max}`);
 
   // smooth data
+  // smoothing kernel size
+  //const KERNEL_SIZE = 1; // higher res 8196x4096
+  const KERNEL_SIZE = 0;
   if (KERNEL_SIZE > 0) {
     console.log(`createBumpMap: smoothing...`);
     const t0 = performance.now();
@@ -158,6 +155,7 @@ function processHillshade(bumpData, width, height){
 
   // smooth elevation data otherwise it is too rough
   // blur data
+  //const KERNEL_SIZE = 1; // higher res 8196x4096
   const KERNEL_SIZE = 1;
   if (KERNEL_SIZE > 0) {
     console.log(`createBumpMap: hillshade: smoothing elevation data: kernel size ${KERNEL_SIZE}`);

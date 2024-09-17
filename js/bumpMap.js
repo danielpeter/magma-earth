@@ -29,28 +29,140 @@ const HILLSHADE_ZFACTOR = 200.0;
 // factor to scale effect strength
 const HILLSHADE_STRENGTH = 0.2;
 
+// Lighting parameters
+let lights = [];
+
+// Hillshade parameters
+//  * Azimuth represents the direction of the light source on the horizontal plane (measured in degrees from the north, clockwise).
+//  * Elevation (or altitude) represents the angle between the light source and the horizon.
+//
+//const azimuth = 315;    // The direction of the light source (e.g., 315 degrees is NW)
+//const altitude = 45;    // The altitude of the light source (e.g., 45 degrees is halfway up)
+// light normal [x,y,z] - vector length for relative magnitude/strength of lights
+lights.push( { direction: [0, 0, 1.0], azimuth: 10, altitude: 45 }) // Light source coming from top z-axis
+lights.push( { direction: [0, 0, -0.3], azimuth: 180, altitude: 45 }) // Light source coming from bottom z-axis
+
+// hillshade scale factor for bump map effect
+const bumpFactor = 1.5;
+
+
 // bump map image
-const imagePath = './data/earth_bumpmap_8192x4096.jpg';
+const imagePath = './data/earth_bumpmap_4096x2048.jpg';
+//const imagePath = './data/earth_bumpmap_8192x4096.jpg'; // higher res -> more memory required...
 
 // for fun, see about a tomo file as bump map
 //const imagePath = './data/s40rts.jpg';
 //const imagePath = './data/sglobe-rani.jpg';
 //const imagePath = './data/sglobe-rani_gray.jpg';
 
-let bumpData = null;
+let bumpData = null;        // elevation topography/bathymetry
+let hillshadeData = null;   // smoothed elevation for hillshade effect
+
 let bumpMapWidth = 0, bumpMapHeight = 0;
 
-// loads image
-/*
-function loadImage(url) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-        img.src = url;
-    });
-}
-*/
+// constants
+const DEGREE_TO_RADIAN = Math.PI / 180;
+
+//// memory optimization
+// we can convert float32 to float16 and use uint16 array for storage since bumpData is normalized
+// float16
+//function getDataAsFloat16(data) {
+//
+//  let float32Value, float16Value;
+//
+//  const N = data.length;
+//
+//  // checks if anything to do
+//  if (N == 0) return null;
+//
+//  // new array of 16-bit integers
+//  const bumpMapArray = new Uint16Array(N);
+//
+//  // Convert Float32 to Float16 and store in bump map array
+//  for (let i = 0; i < N; i++) {
+//    float32Value = data[i];   // float32 value
+//    bumpMapArray[i] = float32ToFloat16(float32Value);  // Convert and store as float16
+//  }
+//
+//  // get min/max
+//  float16Value = bumpMapArray[0];
+//  let min = float16ToFloat32(float16Value);
+//  let max = min;
+//  for (let i = 1; i < N; i++) {
+//    float16Value = bumpMapArray[i];   // float32 value
+//    float32Value = float16ToFloat32(float16Value);  // Convert and store as float16
+//    min = Math.min(min,float32Value);
+//    max = Math.max(max,float32Value);
+//  }
+//  console.log(`getDataAsFloat16: float16 data min/max ${min}/${max}`);
+//
+//  return bumpMapArray;
+//}
+//
+//// we use uint16 arrays as storage to convert from float32 to float16
+//function float32ToFloat16(val) {
+//  // Get a 32-bit view of the float
+//  const float32 = new Float32Array(1);
+//  const int32 = new Int32Array(float32.buffer);
+//
+//  float32[0] = val;
+//
+//  const x = int32[0];
+//
+//  let bits = (x >> 16) & 0x8000; // Get the sign
+//  let m = (x >> 12) & 0x07ff; // Keep only mantissa bits
+//  const e = (x >> 23) & 0xff; // Exponent bits
+//
+//  if (e < 103) return bits; // Too small for a subnormal float
+//  if (e > 142) {
+//    bits |= 0x7c00; // Set to infinity
+//    bits |= (e === 255 ? 0 : 0x200) && (x & 0x007fffff); // NaN
+//    return bits;
+//  }
+//
+//  if (e < 113) {
+//    m |= 0x0800;
+//    bits |= (m >> (114 - e)) + ((m >> (113 - e)) & 1);
+//    return bits;
+//  }
+//
+//  bits |= ((e - 112) << 10) | (m >> 1);
+//  bits += m & 1;
+//  return bits;
+//}
+//
+//function float16ToFloat32(val) {
+//  const float32 = new Float32Array(1);
+//  const int32 = new Int32Array(float32.buffer);
+//
+//  let t1 = val & 0x7fff;
+//  let t2 = val & 0x8000;
+//  const t3 = val & 0x7c00;
+//
+//  t1 <<= 13;
+//  t2 <<= 16;
+//
+//  t1 += 0x38000000;
+//
+//  if (t3 === 0) t1 = 0;
+//
+//  int32[0] = t1 | t2;
+//  return float32[0];
+//}
+//
+//function getBumpData(index) {
+//  const float16Value = bumpData[index];
+//  return float16ToFloat32(float16Value);
+//}
+//
+//function getHillshadeData(index) {
+//  const float16Value = hillshadeData[index];
+//  return float16ToFloat32(float16Value);
+//}
+
+//-------------------------------
+// bump map
+//-------------------------------
 
 async function createBumpMap() {
   try {
@@ -132,6 +244,9 @@ function createBumpMapWorker(imageData, width, height) {
           contours.createContours(bumpData, width, height);
         }
 
+        // convert float32 to float16 and use uint16 array for storage since bumpData is normalized
+        //bumpData = getDataAsFloat16(bumpData);
+
         // send progress on the window object
         let text = '';
         if (ADD_HILLSHADE) {
@@ -149,7 +264,10 @@ function createBumpMapWorker(imageData, width, height) {
         console.log(`createBumpMap: Worker done: hillshade`);
 
         // store data
-        hillshadeElevationData = message.hillshadeElevationData;
+        hillshadeData = message.hillshadeData;
+
+        // convert float32 to float16 and use uint16 array for storage since bumpData is normalized
+        //hillshadeData = getDataAsFloat16(hillshadeData);
 
         // update view
         // Dispatch custom up event on the window object
@@ -165,9 +283,6 @@ function createBumpMapWorker(imageData, width, height) {
         console.error('createBumpMap: unknown message type from worker:', message.type);
 
     }
-    //console.log(`createBumpMap: Worker done: bump data`,bumpData);
-
-    //callback(processedImageData);  // Call the callback with the processed data
   };
 
   // Handle any errors from the worker
@@ -180,23 +295,6 @@ function createBumpMapWorker(imageData, width, height) {
 //-------------------------------
 // lighting/coloring functions
 //-------------------------------
-
-// Lighting parameters
-let lights = [];
-
-// Hillshade parameters
-//  * Azimuth represents the direction of the light source on the horizontal plane (measured in degrees from the north, clockwise).
-//  * Elevation (or altitude) represents the angle between the light source and the horizon.
-//
-//const azimuth = 315;    // The direction of the light source (e.g., 315 degrees is NW)
-//const altitude = 45;    // The altitude of the light source (e.g., 45 degrees is halfway up)
-// light normal [x,y,z] - vector length for relative magnitude/strength of lights
-lights.push( { direction: [0, 0, 1.0], azimuth: 10, altitude: 45 }) // Light source coming from top z-axis
-lights.push( { direction: [0, 0, -0.3], azimuth: 180, altitude: 45 }) // Light source coming from bottom z-axis
-
-
-// Scale factor for bump map effect
-const bumpFactor = 1.5;
 
 function applyBumpMap(x, y) {
     // Get the grayscale value from bump map (normalize the coordinate)
@@ -216,6 +314,10 @@ function applyBumpMap(x, y) {
 
     // bumpValue in [0,1]
     const bumpValue = bumpData[index];
+    // or as float16
+    //const float16Value = bumpData[index];
+    //const float32Value = float16ToFloat32(float16Value);
+    //const bumpValue = float32Value;
 
     return bumpValue;
 }
@@ -223,8 +325,8 @@ function applyBumpMap(x, y) {
 
 function getShade(lon, lat, bump) {
     // get position vector
-    const lonRad = lon * Math.PI / 180;
-    const latRad = lat * Math.PI / 180;
+    const lonRad = lon * DEGREE_TO_RADIAN;
+    const latRad = lat * DEGREE_TO_RADIAN;
 
     let bumpHeight = bump;
 
@@ -323,7 +425,7 @@ function updateBumpMap(projection,width,height,visiblePoints,dx,dy){
 
     // hillshade brightness
     let brightnessHillshade = 0.0;
-    if (ADD_HILLSHADE) { brightnessHillshade = getHillshade(lon, lat, x, y); }
+    if (ADD_HILLSHADE) brightnessHillshade = getHillshade(lon, lat, x, y);
 
     // total brightness
     const brightness = brightnessLight + brightnessHillshade;
@@ -400,17 +502,15 @@ function updateBumpMap(projection,width,height,visiblePoints,dx,dy){
 // hillshade effect
 //-------------------------------
 
-let hillshadeElevationData = null;
-
 function getHillshade(lon, lat, x, y) {
   // computes hillshade at a specified point location, point == [lon,lat], x & y in [0,1]
 
   // check if elevation data available for hillshade
-  if (hillshadeElevationData == null) return 0.0;
+  if (hillshadeData == null) return 0.0;
 
   // get position vector
-  const lonRad = lon * Math.PI / 180;
-  const latRad = lat * Math.PI / 180;
+  const lonRad = lon * DEGREE_TO_RADIAN;
+  const latRad = lat * DEGREE_TO_RADIAN;
   const normal = [ Math.cos(latRad) * Math.cos(lonRad),
                    Math.cos(latRad) * Math.sin(lonRad),
                    Math.sin(latRad)
@@ -455,10 +555,10 @@ function getHillshade(lon, lat, x, y) {
 
   // elevation at neighbor positions
   // bumpValue in [0,1]
-  const zLeft = hillshadeElevationData[index_left];
-  const zRight = hillshadeElevationData[index_right];
-  const zUp = hillshadeElevationData[index_top];
-  const zDown = hillshadeElevationData[index_bottom];
+  const zLeft = hillshadeData[index_left];
+  const zRight = hillshadeData[index_right];
+  const zUp = hillshadeData[index_top];
+  const zDown = hillshadeData[index_bottom];
 
   // Compute slope and aspect from neighboring points (simple finite difference)
   // Zevenbergen-Thorne algorithm
@@ -517,14 +617,23 @@ function getHillshade(lon, lat, x, y) {
   }
 
   // Compute the gradient components
-  const val_A = hillshadeElevationData[index_A];
-  const val_B = hillshadeElevationData[index_B];
-  const val_C = hillshadeElevationData[index_C];
-  const val_D = hillshadeElevationData[index_D];
-  const val_E = hillshadeElevationData[index_E];
-  const val_F = hillshadeElevationData[index_F];
-  const val_G = hillshadeElevationData[index_G];
-  const val_H = hillshadeElevationData[index_H];
+  const val_A = hillshadeData[index_A];
+  const val_B = hillshadeData[index_B];
+  const val_C = hillshadeData[index_C];
+  const val_D = hillshadeData[index_D];
+  const val_E = hillshadeData[index_E];
+  const val_F = hillshadeData[index_F];
+  const val_G = hillshadeData[index_G];
+  const val_H = hillshadeData[index_H];
+  // or as float16
+  //const val_A = getHillshadeData(index_A);
+  //const val_B = getHillshadeData(index_B);
+  //const val_C = getHillshadeData(index_C);
+  //const val_D = getHillshadeData(index_D);
+  //const val_E = getHillshadeData(index_E);
+  //const val_F = getHillshadeData(index_F);
+  //const val_G = getHillshadeData(index_G);
+  //const val_H = getHillshadeData(index_H);
 
   // Gradient in x direction - lon
   const val_left = val_A + 2 * val_D + val_F;
@@ -536,49 +645,49 @@ function getHillshade(lon, lat, x, y) {
   const val_bottom = val_F + 2 * val_G + val_H;
   const dzdy = 0.125 * (val_bottom - val_top);
 
-  /* not working properly...
-  let aspect = 0.0;
-  let slope = 0.0;
+  //not working properly...
+  //let aspect = 0.0;
+  //let slope = 0.0;
+  //
+  //if (1 == 0) {
+  //  // Calculate slope and aspect
+  //  const zNorm = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
+  //
+  //  slope = Math.atan(HILLSHADE_ZFACTOR * zNorm);
+  //
+  //  // aspect to measure clockwise with respect to "true" north
+  //  const TWO_PI = 2 * Math.PI;
+  //  const HALF_PI = Math.PI / 2;
+  //
+  //  //let aspect =  Math.atan2(dzdy, -dzdx);
+  //  // see: https://observablehq.com/@mapsgeek/diy-hillshade
+  //  // rotated 90 degrees for proper north up in XY plane
+  //  //let aspect =  HALF_PI - Math.atan2(dzdx, -dzdy);
+  //
+  //  // rotate XY-plane aspect to account for geographic position
+  //  //let theta = (lonRad < 0) ? lonRad + 2 * Math.PI : lonRad ; // in [0,2pi]
+  //  //aspect -= theta;
+  //  // switch direction for [0,pi] section
+  //  //if (theta < Math.PI) { aspect += Math.PI/2; } // theta []
+  //
+  //  // see: https://desktop.arcgis.com/en/arcmap/latest/tools/spatial-analyst-toolbox/how-hillshade-works.htm
+  //  if (dzdx == 0.0) {
+  //    // dz/dx is zero
+  //    if (dzdy > 0) {
+  //        aspect = HALF_PI;
+  //    } else if (dzdy < 0) {
+  //        aspect = TWO_PI - HALF_PI;
+  //    } else {
+  //        aspect = 0.0;
+  //    }
+  //  } else {
+  //    aspect = Math.atan2(dzdy, -dzdx);
+  //  }
+  //
+  //  // aspect in [0,2pi]
+  //  if (aspect < 0.0) { aspect += TWO_PI; }
+  //}
 
-  if (1 == 0) {
-    // Calculate slope and aspect
-    const zNorm = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
-
-    slope = Math.atan(HILLSHADE_ZFACTOR * zNorm);
-
-    // aspect to measure clockwise with respect to "true" north
-    const TWO_PI = 2 * Math.PI;
-    const HALF_PI = Math.PI / 2;
-
-    //let aspect =  Math.atan2(dzdy, -dzdx);
-    // see: https://observablehq.com/@mapsgeek/diy-hillshade
-    // rotated 90 degrees for proper north up in XY plane
-    //let aspect =  HALF_PI - Math.atan2(dzdx, -dzdy);
-
-    // rotate XY-plane aspect to account for geographic position
-    //let theta = (lonRad < 0) ? lonRad + 2 * Math.PI : lonRad ; // in [0,2pi]
-    //aspect -= theta;
-    // switch direction for [0,pi] section
-    //if (theta < Math.PI) { aspect += Math.PI/2; } // theta []
-
-    // see: https://desktop.arcgis.com/en/arcmap/latest/tools/spatial-analyst-toolbox/how-hillshade-works.htm
-    if (dzdx == 0.0) {
-      // dz/dx is zero
-      if (dzdy > 0) {
-          aspect = HALF_PI;
-      } else if (dzdy < 0) {
-          aspect = TWO_PI - HALF_PI;
-      } else {
-          aspect = 0.0;
-      }
-    } else {
-      aspect = Math.atan2(dzdy, -dzdx);
-    }
-
-    // aspect in [0,2pi]
-    if (aspect < 0.0) { aspect += TWO_PI; }
-  }
-  */
 
   // sum of hillshades
   let hillshadeTotal = 0.0;
@@ -601,26 +710,25 @@ function getHillshade(lon, lat, x, y) {
       // Calculate the illumination (cosine of the angle between the light and the surface normal)
       let incidence = 0.0;
 
-      /* not working properly...
-      if (1 == 0) {
-        const zenithRad = (90 - altitude) * Math.PI / 180;
-        //const azimuthRad = azimuth * Math.PI / 180;
-
-        // see: https://desktop.arcgis.com/en/arcmap/latest/tools/spatial-analyst-toolbox/how-hillshade-works.htm
-        let azimuthRad = TWO_PI - azimuth * Math.PI / 180 + HALF_PI;
-        if (azimuthRad > TWO_PI) azimuthRad -= TWO_PI;
-
-        incidence = Math.sin(zenithRad) * Math.sin(slope) +
-                          Math.cos(zenithRad) * Math.cos(slope) * Math.cos(azimuthRad - aspect);
-
-        //if (nx == 6044 && ny == 1530)
-        //  console.log(`getHillshade: nx/ny ${nx}/${ny} index ${index} slope ${slope}/${aspect} incidence ${incidence}`);
-      }
-      */
+      // not working properly...
+      //if (1 == 0) {
+      //  const zenithRad = (90 - altitude) * DEGREE_TO_RADIAN;
+      //  //const azimuthRad = azimuth * DEGREE_TO_RADIAN;
+      //
+      //  // see: https://desktop.arcgis.com/en/arcmap/latest/tools/spatial-analyst-toolbox/how-hillshade-works.htm
+      //  let azimuthRad = TWO_PI - azimuth * DEGREE_TO_RADIAN + HALF_PI;
+      //  if (azimuthRad > TWO_PI) azimuthRad -= TWO_PI;
+      //
+      //  incidence = Math.sin(zenithRad) * Math.sin(slope) +
+      //                    Math.cos(zenithRad) * Math.cos(slope) * Math.cos(azimuthRad - aspect);
+      //
+      //  //if (nx == 6044 && ny == 1530)
+      //  //  console.log(`getHillshade: nx/ny ${nx}/${ny} index ${index} slope ${slope}/${aspect} incidence ${incidence}`);
+      //}
 
       // from: https://observablehq.com/@sahilchinoy/a-faster-hillshader
-      const alpha = Math.PI - azimuth * Math.PI / 180;
-      const beta = altitude * Math.PI / 180;
+      const alpha = Math.PI - azimuth * DEGREE_TO_RADIAN;
+      const beta = altitude * DEGREE_TO_RADIAN;
 
       const A1 = Math.sin(beta);
       const A2 = Math.sin(alpha) * Math.cos(beta);
@@ -659,19 +767,17 @@ function getHillshade(lon, lat, x, y) {
 
 function getPointColor(brightness) {
   // coloring
-  /*
-  let R = Math.round(80 * brightness);
-  let G = Math.round(80 * brightness);
-  let B = Math.round(80 * brightness);
-
-  // limit range
-  if (R < 0) R = 0;
-  if (G < 0) G = 0;
-  if (B < 0) B = 0;
-  if (R > 255) R = 255;
-  if (G > 255) G = 255;
-  if (B > 255) B = 255;
-  */
+  //let R = Math.round(80 * brightness);
+  //let G = Math.round(80 * brightness);
+  //let B = Math.round(80 * brightness);
+  //
+  //// limit range
+  //if (R < 0) R = 0;
+  //if (G < 0) G = 0;
+  //if (B < 0) B = 0;
+  //if (R > 255) R = 255;
+  //if (G > 255) G = 255;
+  //if (B > 255) B = 255;
 
   // see: https://d3js.org/d3-scale-chromatic/sequential
   // continuous
@@ -698,15 +804,20 @@ function drawBumpMap(projection, context){
   projection.clipAngle(90);
 
   // add global transparency
+  const prevAlpha = context.globalAlpha;
+
   context.globalAlpha = BUMPMAP_ALPHA;
 
   // draw texture
+  context.lineWidth = dySampling;
+
   pointsView.forEach(point => {
       // gets ix/iy, lon/lat and brightness of point position
-      const [ix,iy,brightness] = point; // brightness in [0,1]
+      // brightness in [0,1]
+      //const [ix,iy,brightness] = point;
 
       // coloring
-      const color = getPointColor(brightness);
+      const color = getPointColor(point[2]);
 
       // line
       context.beginPath();
@@ -715,13 +826,13 @@ function drawBumpMap(projection, context){
       context.lineWidth = dySampling;
       //context.fillStyle = `rgba(0, 0, 0, 0.97)`;
       //context.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-      context.moveTo(ix, iy);
-      context.lineTo(ix + dxSampling, iy);
+      context.moveTo(point[0], point[1]);
+      context.lineTo(point[0] + dxSampling, point[1]);
       context.stroke();
   });
 
-  // Reset the globalAlpha to 1.0 (fully opaque) for future operations
-  context.globalAlpha = 1.0;
+  // Reset the globalAlpha (1.0 == fully opaque) for future operations
+  context.globalAlpha = prevAlpha;
 
   console.timeEnd('drawBumpMap');
 }
