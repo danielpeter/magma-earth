@@ -1,5 +1,5 @@
 /***
-* 3D Earth tomo viewer - project to visualize global seismic models
+* magma earth - a 3D Earth web viewer project to visualize global seismic models
 *
 * Copyright (c) 2024 Daniel Peter
 * MIT License - https://opensource.org/license/mit

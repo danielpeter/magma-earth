@@ -1,10 +1,26 @@
-# Earth tomo viewer
+# magma earth
 
-![Earth tomo viewer](earth_tomo_viewer.jpg "Earth tomo viewer screenshot")
+![magma earth viewer](magma_earth_viewer.jpg "magma earth :: a tomographic model viewer screenshot")
+
+
+This is an experimental project of an interactive 3D web viewer for seismic tomographic models.
+The website displays seismic images at a depth of 150 km from different global tomographic models. The flow animation follows the seismic velocity gradient to provide an intuitive visual of the model.
+
+Currently supported models:
+
+| Model |   |
+|-------|---|
+| SGLOBE-rani[^*] | [Chang et al. (2015) doi:10.1002/2014JB011824](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2014JB011824)|
+| S40RTS[^*]      | [Ritsema et al. (2011) doi:10.1111/j.1365-246X.2010.04884.x](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1365-246X.2010.04884.x) |
+| SAVANI        | [Auer et al. (2014) doi:10.1002/2013JB010773](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1002/2013JB010773) |
+| SPani-S       | [Tesoniero et al. (2015) doi:10.1002/2015JB012026](https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2015JB012026/abstract;jsessionid=807CA5C22CFE0879DE2CB66CCA80A7C0.f04t03)|
+| TX2015        | [Lu and Grand (2016) doi:10.1093/gji/ggw072](https://academic.oup.com/gji/article/205/2/1074/691474?login=false)|
+_____________
+
+[^*] denotes models implemented in [SPECFEM3D_GLOBE](https://github.com/SPECFEM/specfem3d_globe)
+
 
 ## Flow animation for tomographic seismic images
-
-This site displays seismic images at a depth of 150 km from different global tomographic models. The flow animation follows the seismic velocity gradient to provide an intuitive visual of the model.
 
 This project is still in a beta version with limited features and capabilities.
 The site reads in seismic models, that is tomographic depth slices of shear velocities, as grayscale JPEG-images.
@@ -20,7 +36,7 @@ As additional option in the menu on the top right, you can add earthquake locati
 
 The globe model also shows hotspot locations gathered from different sources, and plate boundaries (following Peter Bird's 2002 model) as orientation features.
 
-Now, enjoy the meditation :)
+Now, enjoy the meditation :earth_africa:
 
 
 ---
@@ -61,7 +77,7 @@ This adds multi-threading to this javascript environment, but will only work wit
 Furthermore, the code structuring relies on ES6 module capabilities. Thus, it won't be supported on old browsers.
 My IIFE's are rudimentary, and most coding style is pretty simple. The rendering uses two canvas elements to separate the bump map and
 vector field texturing from the particle animation rendering. On top, I added an SVG element to interact with mouse-over events.
-That's just to add a bit of fun, displaying common hotspot locations when you find one :)  
+That's just to add a bit of fun, displaying common hotspot locations when you find one :volcano:
 
 Enough blabla, if you have suggestions and/or want to contribute to this project, please feel free to do so - your contributions are very welcome!
 
