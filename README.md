@@ -79,6 +79,8 @@ My IIFE's are rudimentary, and most coding style is pretty simple. The rendering
 vector field texturing from the particle animation rendering. On top, I added an SVG element to interact with mouse-over events.
 That's just to add a bit of fun, displaying common hotspot locations when you find one :volcano:
 
+![magma earth screen](magma_earth_screenrecording.gif "magma earth :: a tomographic model viewer screenrecording")
+
 Enough blabla, if you have suggestions and/or want to contribute to this project, please feel free to do so - your contributions are very welcome!
 
 -daniel, September 2024
