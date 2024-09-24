@@ -11,8 +11,6 @@
 
 import * as vectorField from "./vectorField.js"; // vector field
 
-// flag to add particles to view
-const ADD_PARTICLES = true;
 
 // total number of particles
 let numParticles = 10000;
@@ -30,7 +28,6 @@ const VELOCITY_FACTOR = 0.5; // slow down, relax - it's earth material
 
 // particle drawing
 const particleSize = 1.0;
-
 const ADAPT_PARTICLESIZE = false; // adapt line width to zoom factor
 
 // blend color to fade out existing trails
@@ -52,8 +49,6 @@ const DEGREE_TO_RADIAN = Math.PI / 180;
 
 // Initialize particles
 function initializeParticles() {
-  // checks if anything to do
-  if (! ADD_PARTICLES) return;
 
   // check if vector field is ready
   if (! vectorField.isGradientValid()) return;
@@ -335,9 +330,6 @@ function updateParticles(projection,width,height) {
 function moveParticles() {
   // move particle positions & age
 
-  // checks if anything to do
-  if (! ADD_PARTICLES) return;
-
   // check if particle array is valid
   if (particles == null) return;
   if (particles.length == 0) return;
@@ -395,8 +387,6 @@ function moveParticles() {
 
 // draw particles
 function drawParticles(projection, context, width, height) {
-  // checks if anything to do
-  if (! ADD_PARTICLES) return;
 
   // check if particle array is valid
   if (particles == null) return;

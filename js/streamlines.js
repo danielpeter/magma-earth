@@ -11,9 +11,8 @@
 
 import * as vectorField from "./vectorField.js";  // vector field
 
-// flag to add streamlines to view
-const ADD_STREAMLINES = true;
 
+// streamlines
 const numPaths = 64800;    // number of streamlines: 64800 -> 1 x 1 degree samples
 const numPathLength = 6;   // number of point positions per streamline
 
@@ -22,24 +21,29 @@ const useRegularLocations = true;  // use regular lon/lat start positions instea
 // streamlines array
 let streamlines = null;
 
+// streamlines velocity factor
+const STRETCH_FACTOR = 4.0; // to make streamlines longer
+
 // streamline drawing
-const streamlineSize = 2;
+const streamlineSize = 1.0;
+const ADAPT_STREAMLINESIZE = false; // adapt line width to zoom factor
+
+// quantized color scale for color buckets
+let colorScale = null;
+const NUM_COLORS = 10; // number of quantized colors
 
 // regular stepping for start locations
-let currentLon = -180.0, currentLat = -90.0;
+let StartLon = -180.0, StartLat = -90.0;
 let deltaLon = 1.0, deltaLat = 1.0;
 let nLonSteps = 0, nLatSteps = 0;
+let currentLon, currentLat;
 
 // constants
 const DEGREE_TO_RADIAN = Math.PI / 180;
 
-// pre-allocate vector
-const vector = new Float32Array(2);
 
 // Initialize streamlines
 function initializeStreamlines() {
-  // checks if anything to do
-  if (! ADD_STREAMLINES) return;
 
   // check if vector field is ready
   if (! vectorField.isGradientValid()) return;
@@ -50,12 +54,26 @@ function initializeStreamlines() {
   const numPositions = numPaths * numPathLength;
 
   // streamlines array
-  streamlines = new Float32Array(numPositions * 4); // x, y, vx, vy
+  if (streamlines == null) {
+    streamlines = new Float32Array(numPositions * 4); // x, y, vx, vy
+  }
 
   // loop over paths
   for (let n = 0; n < numPaths; n++) {
     createPath(n);
   }
+
+  // Create a quantized color scale with 10 discrete steps
+  const startColor = "rgba(155, 155, 155, 0.4)";
+  const endColor = "rgba(255, 255, 155, 0.4)";
+
+  // interpolator
+  const colorInterpolator = d3.interpolateRgb(startColor, endColor);
+
+  // scale
+  colorScale = d3.scaleQuantize()
+                    .domain([0.0, 1.0])    // normalized velocity range
+                    .range(d3.quantize(colorInterpolator, NUM_COLORS));
 }
 
 
@@ -86,14 +104,17 @@ function createPath(n) {
         nLonSteps += 1;
       }
 
-      deltaLon = 360.0 / (nLonSteps + 1);
-      deltaLat = 180.0 / (nLatSteps + 1);
+      if (nLonSteps <= 0) nLonSteps = 1;
+      if (nLatSteps <= 0) nLatSteps = 1;
+
+      deltaLon = 360.0 / nLonSteps;
+      deltaLat = 180.0 / nLatSteps;
 
       console.log(`streamlines: regular paths ${numPaths} - nsteps ${nLonSteps} ${nLatSteps} delta lon/lat = ${deltaLon}/${deltaLat}`);
 
       // shift away from pole and meridian
-      currentLon += deltaLon / 2;
-      currentLat += deltaLat / 2;
+      currentLon = StartLon + deltaLon / 2;
+      currentLat = StartLat + deltaLat / 2;
     }
 
     // set to current start position
@@ -104,7 +125,7 @@ function createPath(n) {
     currentLon += deltaLon;
     if ((n > 0) && (n % nLonSteps == 0)){
       // reached end of longitude line, increment latitude and reset longitude
-      currentLon = -180.0 + deltaLon / 2; // re-start longitudes
+      currentLon = StartLon + deltaLon / 2; // re-start longitudes
       currentLat += deltaLat;
     }
 
@@ -131,10 +152,17 @@ function createPath(n) {
   // moves points according to vector field:
   //   vx - x direction == lon
   //   vy - y direction == lat
+  // pre-allocate vector
+  const vector = new Float32Array(2);
+
   vectorField.getVectorField(lon, lat, vector);
 
   // check if valid
   if (!vector[0] || !vector[1]){ return; }
+
+  // scale velocities
+  vector[0] *= STRETCH_FACTOR; // vx
+  vector[1] *= STRETCH_FACTOR; // vy
 
   // or simple vector field
   //const lonRad = lon * DEGREE_TO_RADIAN;
@@ -165,16 +193,31 @@ function createPath(n) {
 
     // updates velocity direction
     vectorField.getVectorField(lon, lat, vector);
+
     // check if valid
     if (!vector[0] || !vector[1]){ return; }
+
+    // scale velocities
+    vector[0] *= STRETCH_FACTOR; // vx
+    vector[1] *= STRETCH_FACTOR; // vy
   }
+}
+
+// clear streamline arrays
+function clearStreamlines() {
+
+  console.log(`streamlines: clearStreamlines`);
+
+  // check if streamlines array is valid
+  if (!streamlines) return;
+
+  // reset reference array
+  streamlines = null;
 }
 
 
 // update streamline positions
 function updateStreamlines() {
-  // checks if anything to do
-  if (! ADD_STREAMLINES) return;
 
   // check if vector field is ready
   if (! vectorField.isGradientValid()) return;
@@ -182,11 +225,10 @@ function updateStreamlines() {
   // check if streamlines array is valid
   if (!streamlines) return;
 
-  console.log(`updateStreamlines: streamlines ${streamlines.length/4}`);
-
   // check if regular start locations, then we keep those
   if (useRegularLocations) return;
 
+  //console.log(`updateStreamlines: streamlines ${streamlines.length/4}`);
   console.time('updateStreamlines');
 
   // loop over paths
@@ -195,13 +237,10 @@ function updateStreamlines() {
   }
 
   console.timeEnd('updateStreamlines');
-
 }
 
 // draw streamlines
 function drawStreamlines(projection, context) {
-  // checks if anything to do
-  if (! ADD_STREAMLINES) return;
 
   //console.log(`drawStreamlines: streamlines ${streamlines.length/4}`);
 
@@ -238,17 +277,29 @@ function drawStreamlines(projection, context) {
   const vCenter = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
 
   // determine line width based on zoom
-  let k = 1.0, scaleZoom = 1.0;
-  const transform = d3.zoomTransform(d3.select("#navigation").node());
-  if (transform != null){
-    k = transform.k; // 313 to 6266...
-    const windowSize = Math.min(context.canvas.width,context.canvas.height);
-    scaleZoom = k / windowSize; // stronger zoom -> higher k -> thicker lines
+  let lineWidth = streamlineSize;
+  if (ADAPT_STREAMLINESIZE) {
+    let k = 1.0, scaleZoom = 1.0;
+    const transform = d3.zoomTransform(d3.select("#navigation").node());
+    if (transform != null){
+      k = transform.k; // 313 to 6266...
+      const windowSize = Math.min(context.canvas.width,context.canvas.height);
+      scaleZoom = k / windowSize; // stronger zoom -> higher k -> thicker lines
+    }
+    lineWidth = (scaleZoom < 1) ? streamlineSize : Math.floor(streamlineSize * scaleZoom);
+    //console.log(`drawStreamlines: line width ${lineWidth}`);
   }
-  const lineWidth = (scaleZoom < 1) ? streamlineSize : Math.floor(streamlineSize * scaleZoom);
 
   projection.clipAngle(90);
 
+  // position vectors
+  const v0 = [0, 0, 0];
+  const v1 = [0, 0, 0];
+
+  let p0 = [0,0];
+  let p1 = [0,0];
+
+  //debug
   //let isDone = false;
 
   for (let i = 0; i < streamlines.length/4; i++) {
@@ -267,56 +318,70 @@ function drawStreamlines(projection, context) {
     const lon0 = streamlines[index];
     const lat0 = streamlines[index + 1];
 
+    const vx = streamlines[index + 2];
+    const vy = streamlines[index + 3];
+
+    // velocity strength
+    const norm = Math.sqrt(vx * vx + vy * vy) / STRETCH_FACTOR;  // in [0,1]
+
     // updated position
-    const lon1 = lon0 + streamlines[index + 2];
-    const lat1 = lat0 + streamlines[index + 3];
+    const lon1 = lon0 + vx;
+    const lat1 = lat0 + vy;
 
     // current point location vector
-    lonRad = lon0 * DEGREE_TO_RADIAN;
-    latRad = lat0 * DEGREE_TO_RADIAN;
-    const v0 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+    const lonRad0 = lon0 * DEGREE_TO_RADIAN;
+    const latRad0 = lat0 * DEGREE_TO_RADIAN;
+    v0[0] = Math.cos(latRad0) * Math.cos(lonRad0);
+    v0[1] = Math.cos(latRad0) * Math.sin(lonRad0);
+    v0[2] = Math.sin(latRad0);
 
-    lonRad = lon1 * DEGREE_TO_RADIAN;
-    latRad = lat1 * DEGREE_TO_RADIAN;
-    const v1 = [ Math.cos(latRad) * Math.cos(lonRad), Math.cos(latRad) * Math.sin(lonRad), Math.sin(latRad) ];
+    const lonRad1 = lon1 * DEGREE_TO_RADIAN;
+    const latRad1 = lat1 * DEGREE_TO_RADIAN;
+    v1[0] = Math.cos(latRad1) * Math.cos(lonRad1);
+    v1[1] = Math.cos(latRad1) * Math.sin(lonRad1);
+    v1[2] = Math.sin(latRad1);
 
     if(! isPointVisibleHemisphere(vCenter,v0)) { continue; }
     if(! isPointVisibleHemisphere(vCenter,v1)) { continue; }
 
     // converted to x/y
-    const p0 = projection([lon0,lat0]);
-    const p1 = projection([lon1,lat1]);
+    p0 = projection([lon0,lat0]);
+    p1 = projection([lon1,lat1]);
 
     // check if valid
     if (!p0 || isNaN(p0[0]) || isNaN(p0[1])) { continue; }
     if (!p1 || isNaN(p1[0]) || isNaN(p1[1])) { continue; }
 
-    const [x0,y0] = p0;
-    const [x1,y1] = p1;
-
     // check if point is visible area
     // doesn't work, returned [x,y] pixel positions are all within globe area...
+    //const [x0,y0] = p0;
+    //const [x1,y1] = p1;
     //if (! isPointClose([x0,y0])) { continue; }
     //if (! isPointClose([x1,y1])) { continue; }
 
     // Draw streamline
-    // alpha value based on path position index
-    const n = i % numPathLength;
-    const val = ((n+1) / numPathLength); // in [0.1,1]
-    const alpha = 0.2 * val;
-
-    //if (index == 0) console.log(`drawStreamlines: ${lon0}/${lat0} to ${lon1}/${lat1} alpha ${alpha}`);
-
     // coloring
-    let color;
+    //let color;
     // same as bumpMap coloring
     //color = d3.interpolatePuBu(1 - val);
     // red
-    color = d3.interpolateYlOrBr(1 - val);
+    //color = d3.interpolateYlOrBr(1 - val);
+    // Determine color based on velocity
+    let color = colorScale(norm);
+
+    // alpha value based on path position index
+    const n = i % numPathLength;
+    const val = ((n+1) / numPathLength); // in [0.1,1]
+
+    let alpha = 0.1 + 0.2 * val;
+    if (alpha > 1.0) alpha = 1.0;
+
+    //if (index == 0) console.log(`drawStreamlines: ${lon0}/${lat0} to ${lon1}/${lat1} alpha ${alpha}`);
 
     // add transparency
     color = d3.color(color).copy({opacity: alpha});
 
+    //debug
     //if (! isDone) {
     //  console.log(`drawStreamlines: transform ${transform} k ${k} ${scaleZoom} ${context.canvas.width} ${context.canvas.height} lineWidth ${lineWidth}`);
     //  isDone = true;
@@ -326,8 +391,8 @@ function drawStreamlines(projection, context) {
     context.beginPath();
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
-    context.moveTo(x0, y0);
-    context.lineTo(x1, y1);
+    context.moveTo(p0[0], p0[1]);
+    context.lineTo(p1[0], p1[1]);
     context.stroke();
   }
 
@@ -335,4 +400,4 @@ function drawStreamlines(projection, context) {
 }
 
 
-export { initializeStreamlines, updateStreamlines, drawStreamlines };
+export { initializeStreamlines, clearStreamlines, updateStreamlines, drawStreamlines };

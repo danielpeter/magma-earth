@@ -581,8 +581,6 @@ Promise.all(promises).then((data) => {
 
       // stop animation
       viewUpdatesZoom = true;
-      //stopAnimation();
-      //renderer.state.showParticles = false;
 
       // update versor
       v0 = versor.cartesian(projection.invert(point(event, this)));
@@ -670,9 +668,6 @@ function clearContexts(){
 
 // view rendering
 function updateFullView(){
-  // streamlines
-  //streamlines.updateStreamlines();
-
   // check flag to see if transition is still rendering
   if (viewUpdatesTransition) return;
 
@@ -709,20 +704,15 @@ function startAnimation(){
   // check if gradient vector field is ready
   if (!vectorField.isGradientValid()) return;
 
-  // check if animation is already running
-  if (animationRunning) return;
-
-  // turn on particle rendering
-  //renderer.state.showParticles = true;
-
-  // update view range - already done?
-  //renderer.updateVisiblePoints(projection, width, height);
-  // render globe canvas
-  //renderer.render(projection, contextGlobe, path, transform, land, borders, plates, quakes, true);
+  // check if particles are shown
+  if (!renderer.state.showParticles) return;
 
   // set start time
   animationStartTime = d3.now();
   animationCancel = false;
+
+  // check if animation is already running
+  if (animationRunning) return;
 
   // animate, move & draw particles
   // to avoid multi-frame delay between the initial call and callbacks
@@ -768,7 +758,7 @@ function doAnimationFrame(currentTime) {
     //console.log(`doAnimationFrame: current time ${currentTime} delta ${deltaTime}`);
 
     // check if vector field ready
-    if (vectorField.isGradientValid()) {
+    if (vectorField.isGradientValid() &&  !renderer.state.showStreamlines) {
       // render when no zooming/transitioning on globe
       if (! (viewUpdatesTransition || viewUpdatesZoom) ) {
         // move particles
@@ -812,8 +802,6 @@ function doAnimationFrame(currentTime) {
 //  }
 //  // set start time
 //  animationStartTime = d3.now();
-//  // turn on particle rendering
-//  //renderer.state.showParticles = true;
 //}
 //
 //function stopAnimation(){
@@ -834,7 +822,6 @@ function doAnimationFrame(currentTime) {
 //  animationTicker = d3.interval(onAnimationTicker, tickDuration, 2000);  // start after 100 ms
 //  // reset start time
 //  animationStartTime = d3.now();
-//  //renderer.state.showParticles = true;
 //}
 //
 //function onAnimationTicker() {
@@ -937,11 +924,9 @@ function onResize() {
 //
 //  // rotate towards position p
 //  //stopAnimation();
-//  ////renderer.state.showParticles = false;
 //
 //  //transition(p);
 //  //restartAnimation();
-//  //renderer.state.showParticles = true;
 //}
 
 
@@ -995,7 +980,7 @@ function onUpdate(event) {
       (progressBar_progress >= 100 && vectorField.isGradientValid()) ||
       (isMobile && message.includes("contoursDone"))) {
     // start animation when gradient field done
-    startAnimation();
+    if (renderer.state.showParticles) startAnimation();
   }
 }
 
@@ -1196,8 +1181,10 @@ d3.selectAll('.menu-item')
         highlightModelItem(name);
         // set new model selection
         vectorField.setModelSelection(name);
-        // checks if done
+        // checks if no vector field
         if (name == 'none') { stopAnimation(); }
+        // clear streamlines
+        if (renderer.state.showStreamlines) streamlines.clearStreamlines();
         // clear both contexts, for globe & animation drawing
         clearContexts();
         // low-res render
@@ -1309,7 +1296,10 @@ function highlightColorItem(name) {
 const checkboxQuakes = document.getElementById('check-earthquakes');
 // contour lines
 const checkboxContours = document.getElementById('check-contours');
+// contour lines
+const checkboxStreamlines = document.getElementById('check-streamlines');
 
+// quake locations
 checkboxQuakes.addEventListener('change', function() {
   if (this.checked) {
     //console.log("Checkbox: is checked");
@@ -1326,6 +1316,7 @@ checkboxQuakes.addEventListener('change', function() {
   renderer.renderSVG(projection, quakes);
 });
 
+// contours
 checkboxContours.addEventListener('change', function() {
   if (this.checked) {
     //console.log("Checkbox: is checked");
@@ -1340,5 +1331,33 @@ checkboxContours.addEventListener('change', function() {
   }
   // update canvas
   renderer.render(projection, contextGlobe, path, transform, land, borders, plates, quakes, true);
+});
+
+// streamlines
+checkboxStreamlines.addEventListener('change', function() {
+  if (this.checked) {
+    //console.log("Checkbox: is checked");
+    d3.select('#check-streamlines-label').classed('highlighted', true);
+    // set render flag
+    renderer.state.showStreamlines = true;
+    renderer.state.showParticles = false;
+    // initialize streamlines
+    stopAnimation();
+    clearContexts();
+    streamlines.initializeStreamlines();
+  } else {
+    //console.log("Checkbox: is unchecked");
+    d3.select('#check-streamlines-label').classed('highlighted', false);
+    // set render flag
+    renderer.state.showStreamlines = false;
+    renderer.state.showParticles = true;
+    // reset streamlines
+    streamlines.clearStreamlines();
+    clearContexts();
+    particles.initializeParticles();
+    restartAnimation();
+  }
+  // clear canvas and update view
+  updateFullView();
 });
 

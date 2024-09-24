@@ -44,6 +44,9 @@ function updateVisiblePoints(projection,width,height){
   // update particles
   if (state.showParticles) { particles.updateParticles(projection,width,height); }
 
+  // streamlines
+  if (state.showStreamlines) { streamlines.updateStreamlines(); }
+
   // check if anything left to do
   if (!state.showBumpMap && !state.showVectorField) return;
 

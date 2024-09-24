@@ -10,6 +10,7 @@
 // vector field example
 //
 
+import * as renderer from "./renderer.js";
 import * as contours from "./contours.js"; // contours
 import * as streamlines from "./streamlines.js";
 import * as particles from "./particles.js";
@@ -20,9 +21,7 @@ const ADD_VECTORFIELD = true;
 // contouring
 const ADD_CONTOURS = true;
 
-// streamlines
-const ADD_STREAMLINES = false;
-
+// vector field
 let scalarData = null; // scalar from image gray scale values
 let vectorData = null; // computed gradient vector
 let scalarMapWidth = 0, scalarMapHeight = 0;
@@ -217,12 +216,14 @@ function createVectorFieldWorker(imageData, width, height) {
         vectorData = message.vectorData;
 
         // create streamlines
-        if (ADD_STREAMLINES) {
+        if (renderer.state.showStreamlines) {
           streamlines.initializeStreamlines();
         }
 
         // create particles
-        particles.initializeParticles();
+        if (renderer.state.showParticles) {
+          particles.initializeParticles();
+        }
 
         // update view
         // Dispatch custom up event on the window object
