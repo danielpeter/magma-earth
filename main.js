@@ -1175,6 +1175,7 @@ d3.selectAll('.menu-item')
           case 'nav-model-savani': { name = 'SAVANI'; break; }
           case 'nav-model-spani-s': { name = 'SPani-S'; break; }
           case 'nav-model-tx2015': { name = 'TX2015'; break; }
+          case 'nav-model-glad-azi': { name = 'GLAD-AZI'; break; }
           case 'nav-model-none': { name = 'none'; break; }
         }
         // highlight clicked item

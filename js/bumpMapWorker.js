@@ -15,7 +15,7 @@ importScripts("./lib/d3.v7.min.js");
 // message
 self.onmessage = function(event) {
   const message = event.data;
-  
+
   switch (message.type) {
     case 'bump': {
       // Receive image data from the main thread

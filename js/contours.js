@@ -464,7 +464,7 @@ function drawContours(projection, context, path, transform){
 
   });
 
-  console.timeEnd('drawContours');  
+  console.timeEnd('drawContours');
 }
 
 export { createContours, drawContours, clearContours };

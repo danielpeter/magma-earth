@@ -25,7 +25,7 @@ let vectorArray = null;
 // message
 self.onmessage = function(event) {
   const message = event.data;
-  
+
   switch (message.type) {
     case 'scalar': {
       // Receive image data from the main thread
@@ -53,6 +53,22 @@ self.onmessage = function(event) {
       self.postMessage({type: 'gradientDone', vectorData: vectorArray});
 
       // clean up array
+      vectorArray = null;
+
+      break;
+    }
+    case 'vector': {
+      // Receive text data for a direct vector field from the main thread
+      const { textData } = message;
+
+      // Process the text data into a vector field
+      const { vectorData: vectorArray, scalarData: scalarArray, width: parsedWidth, height: parsedHeight } = processVectorFieldFromFile(textData);
+
+      // Send the processed vector data back to the main thread
+      self.postMessage({type: 'vectorDone', vectorData: vectorArray, scalarData: scalarArray, width: parsedWidth, height: parsedHeight});
+
+      // Clean up array
+      scalarArray = null;
       vectorArray = null;
 
       break;
@@ -103,7 +119,7 @@ function processVectorField(imageData, width, height){
   if (KERNEL_SIZE > 0) {
     console.log(`createVectorField: smoothing...`);
     const t0 = performance.now();
-    
+
     // blur
     scalarArray = d3.blur2({data: scalarArray, width: width}, KERNEL_SIZE).data;
 
@@ -335,9 +351,8 @@ function processGradientField(scalarData, width, height) {
   // vector length in [0,1]
   if (NORMALIZE_GRADIENT) {
     if (norm > 0.0) {
-      for (let i = 2; i < vectorArray.length; i+=2){
+      for (let i = 0; i < vectorArray.length; i++){
         vectorArray[i] /= norm;
-        vectorArray[i + 1] /= norm;
       }
     }
     ({ vxMin,vxMax,vyMin,vyMax,norm } = getMinMaxNorm());
@@ -348,3 +363,149 @@ function processGradientField(scalarData, width, height) {
   return;
 }
 
+function processVectorFieldFromFile(textData) {
+  console.log(`processVectorFieldFromFile: parsing direct vector field data...`);
+  const t0 = performance.now();
+
+  const lines = textData.trim().split('\n');
+  const points = lines
+    .filter(line => !line.startsWith('#')) // Skip comment lines
+    .map(line => {
+        const parts = line.split(/\s+/); // Split by one or more spaces
+        return {
+            // format: Longitude [-180,179] Latitude [-90,90] Amplitude [0,0.052] Azimuth [-90,90]  (degrees)
+            lon: parseFloat(parts[0]),
+            lat: parseFloat(parts[1]),
+            amplitude: parseFloat(parts[2]),
+            azimuth: parseFloat(parts[3])
+        };
+    });
+
+  // Infer width and height assuming a regular grid (row-major: latitude decreasing, longitude increasing)
+  let width = 0;
+  let height = 0;
+
+  if (points.length > 0) {
+      const uniqueLats = new Set();
+      const uniqueLonsFirstRow = new Set();
+
+      // first single point at lon/lat = [0,-90]
+      // then at increasing longitude [0,-89], [1,-89], .. [359,-89], and then [0,-88], ..
+      // with a finishing single point at lon/lat = [0,90]
+
+      const firstLat = points[0].lat;
+      for (const p of points) {
+          uniqueLats.add(p.lat);
+          if (Math.abs(p.lat - firstLat) < 0.001) {
+              uniqueLonsFirstRow.add(p.lon);
+          }
+      }
+      height = uniqueLats.size;
+      width = uniqueLonsFirstRow.size;
+
+      console.log(`processVectorFieldFromFile: Inferred grid dimensions lon x lat = width x height = ${width} x ${height}`);
+
+      if (width * height !== points.length) {
+          console.warn(`processVectorFieldFromFile: Data is irregular and not a perfect grid.`);
+          // clear and done
+          vectorArray = null;
+          return { vectorData: vectorArray, width: 0, height: 0 };
+      }
+  }
+
+  // scalar array: using amplitude as scalar value
+  scalarArray = new Float32Array(width * height);
+
+  for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      // Use amplitude directly as scalar value
+      scalarArray[i] = p.amplitude;
+  }
+
+  function getMinMax(data) {
+    // gets min/max
+    let min = data[0], max = data[0];
+    for (let i = 1; i < data.length; i++){
+      min = Math.min(min,data[i]);
+      max = Math.max(max,data[i]);
+    }
+    return { min,max };
+  }
+
+  let min,max;
+  ({ min, max } = getMinMax(scalarArray));
+  console.log(`processVectorFieldFromFile: scalar data size = ${scalarArray.length} : min/max = ${min}/${max}`);
+
+  // normalize range
+  const range = max - min;
+  if (range > 0.0) {
+    console.log(`processVectorFieldFromFile: normalizing scalar data...`);
+    for (let i = 0; i < scalarArray.length; i++) {
+      const val = (scalarArray[i] - min) / range;
+      if (val < 0.0) val = 0.0;
+      if (val > 1.0) val = 1.0;
+      scalarArray[i] = val;
+    }
+    ({ min, max } = getMinMax(scalarArray));
+    console.log(`processVectorFieldFromFile: scalar data range = ${range} normalized min/max = ${min}/${max}`);
+  }
+
+  // vector array: vx, vy components
+  vectorArray = new Float32Array(width * height * 2); // vx, vy
+
+  for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const azimuth_radians = p.azimuth * (Math.PI / 180); // Convert degrees to radians
+
+      // Assuming azimuth is clockwise from North (0 deg North, 90 deg East)
+      // vx component (East) = Amplitude * sin(azimuth)
+      // vy component (North) = Amplitude * cos(azimuth)
+      vectorArray[i * 2]     = p.amplitude * Math.sin(azimuth_radians); // vx (longitude component)
+      vectorArray[i * 2 + 1] = p.amplitude * Math.cos(azimuth_radians); // vy (latitude component)
+  }
+
+  const t1 = performance.now();
+  console.log(`processVectorFieldFromFile: parsing took: `,`${t1 - t0} milliseconds`);
+
+  // stats min/max and normalize, similar to processGradientField
+
+  // stats min/max
+  function getMinMaxNorm(){
+    let vxMin = vectorArray[0], vxMax = vectorArray[0];
+    let vyMin = vectorArray[1], vyMax = vectorArray[1];
+    let norm = 0.0;
+    for (let i = 2; i < vectorArray.length; i+=2){
+      const vx = vectorArray[i];
+      const vy = vectorArray[i + 1];
+      // vx min/max
+      vxMin = Math.min(vxMin,vx);
+      vxMax = Math.max(vxMax,vx);
+      // vy min/max
+      vyMin = Math.min(vyMin,vy);
+      vyMax = Math.max(vyMax,vy);
+      // norm
+      norm = Math.max(norm,vx * vx + vy * vy);
+    }
+    norm = Math.sqrt(norm);
+
+    return { vxMin, vxMax, vyMin, vyMax, norm};
+  }
+
+  let vxMin,vxMax,vyMin,vyMax,norm;
+  ({ vxMin,vxMax,vyMin,vyMax,norm } = getMinMaxNorm());
+  console.log(`processVectorFieldFromFile: vector vx: min/max = ${vxMin}/${vxMax} vy: min/max = ${vyMin}/${vyMax} norm: ${norm}`);
+
+  // normalize
+  // vector length in [0,1]
+  if (NORMALIZE_GRADIENT) {
+    if (norm > 0.0) {
+      for (let i = 0; i < vectorArray.length; i++){
+        vectorArray[i] /= norm;
+      }
+    }
+    ({ vxMin,vxMax,vyMin,vyMax,norm } = getMinMaxNorm());
+    console.log(`processVectorFieldFromFile: normalized vector vx: min/max = ${vxMin}/${vxMax} vy: min/max = ${vyMin}/${vyMax} norm: ${norm}`);
+  }
+
+  return { vectorData: vectorArray, scalarData: scalarArray, width: width, height: height };
+}

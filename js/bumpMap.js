@@ -493,7 +493,7 @@ function updateBumpMap(projection,width,height,visiblePoints,dx,dy){
     //console.log(`updateBumpMap: points brightness scaled min/max = ${brightnessMin}/${brightnessMax}`);
   }
 
-  console.timeEnd('updateBumpMap');  
+  console.timeEnd('updateBumpMap');
 }
 
 

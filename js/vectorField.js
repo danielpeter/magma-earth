@@ -29,12 +29,13 @@ let scalarMapWidth = 0, scalarMapHeight = 0;
 // models
 // note: image grayscale such that faster is brigther, slower is darker
 const models = [
-    { name: 'Earth',       depth: 'surface',       path: '' },
-    { name: 'SGLOBE-rani', depth: 'depth 150 km',  path: './data/sglobe-rani_150.jpg' },
-    { name: 'S40RTS',      depth: 'depth 150 km',  path: './data/s40rts_150.jpg' },
-    { name: 'SAVANI',      depth: 'depth 150 km',  path: './data/savani_150.jpg' },
-    { name: 'SPani-S',     depth: 'depth 150 km',  path: './data/spani-s_150.jpg' },
-    { name: 'TX2015',      depth: 'depth 150 km',  path: './data/tx2015_150.jpg' }
+    { name: 'Earth',       depth: 'surface',       path: '',                              type: 'none' },
+    { name: 'SGLOBE-rani', depth: 'depth 150 km',  path: './data/sglobe-rani_150.jpg',    type: 'image' },
+    { name: 'S40RTS',      depth: 'depth 150 km',  path: './data/s40rts_150.jpg',         type: 'image' },
+    { name: 'SAVANI',      depth: 'depth 150 km',  path: './data/savani_150.jpg',         type: 'image' },
+    { name: 'SPani-S',     depth: 'depth 150 km',  path: './data/spani-s_150.jpg',        type: 'image' },
+    { name: 'TX2015',      depth: 'depth 150 km',  path: './data/tx2015_150.jpg',         type: 'image' },
+    { name: 'GLAD-AZI',    depth: 'depth 150 km',  path: './data/glad_azi_m28_150km.gridded.dat', type: 'vector_direct' }
   ];
 
 const colorSchemes = [
@@ -66,6 +67,7 @@ function setModelSelection(name) {
     case 'SAVANI':        selectedModel = 3; break;
     case 'SPani-S':       selectedModel = 4; break;
     case 'TX2015':        selectedModel = 5; break;
+    case 'GLAD-AZI':      selectedModel = 6; break;
     default: console.error('setModelSelection: unknown name:', name);
   }
 }
@@ -89,6 +91,7 @@ function getModelSelection() {
     case 3: name = 'SAVANI'; break;
     case 4: name = 'SPani-S'; break;
     case 5: name = 'TX2015'; break;
+    case 6: name = 'GLAD-AZI'; break;
     default: console.error('getModelSelection: unknown selection:', selectedModel);
   }
   return name;
@@ -138,41 +141,54 @@ async function createVectorField() {
           return;
         }
 
-        //image = await loadImage(models[selectedModel].path);
-        let image = await d3.image(models[selectedModel].path);
-        console.log('Image loaded:', image);
+        const model = models[selectedModel];
 
-        const width = image.width;
-        const height = image.height;
+        if (model.type === 'image') {
+          console.log('createVectorField: Loading image data:', model.path);
+          let image = await d3.image(model.path);
+          console.log('createVectorField: Image loaded:', image);
 
-        // store array dimensions
-        scalarMapWidth = width;
-        scalarMapHeight = height;
+          const width = image.width;
+          const height = image.height;
 
-        // Continue with the rest of your code here, e.g., drawing the image on a canvas
-        // Image is loaded, continue with processing
-        console.log(`createVectorField: image: width/height = ${width}/${height}`);
+          // store array dimensions
+          scalarMapWidth = width;
+          scalarMapHeight = height;
 
-        // creates an image canvas to extract image data
-        let imageCanvas = document.createElement('canvas');
-        imageCanvas.width = width;
-        imageCanvas.height = height;
+          // Continue with the rest of your code here, e.g., drawing the image on a canvas
+          // Image is loaded, continue with processing
+          console.log(`createVectorField: image: width/height = ${width}/${height}`);
 
-        let ctx = imageCanvas.getContext('2d');
-        ctx.drawImage(image, 0, 0);
-        let imageData = ctx.getImageData(0, 0, width, height);
+          // creates an image canvas to extract image data
+          let imageCanvas = document.createElement('canvas');
+          imageCanvas.width = width;
+          imageCanvas.height = height;
 
-        // Create the worker instance
-        createVectorFieldWorker(imageData, width, height)
+          let ctx = imageCanvas.getContext('2d');
+          ctx.drawImage(image, 0, 0);
+          let imageData = ctx.getImageData(0, 0, width, height);
 
-        // release image
-        image.src = '';
-        image = null;
-        imageData = null;
-        ctx.clearRect(0, 0, width, height);
-        ctx = null;
-        imageCanvas = null;
+          // Create the worker instance
+          createVectorFieldWorker({ type: 'scalar', imageData, width, height })
 
+          // release image
+          image.src = '';
+          image = null;
+          imageData = null;
+          ctx.clearRect(0, 0, width, height);
+          ctx = null;
+          imageCanvas = null;
+
+        } else if (model.type === 'vector_direct') {
+          console.log('createVectorField: Loading direct vector field data:', model.path);
+          let textData = await d3.text(model.path);
+
+          // Create the worker instance and send raw text data for parsing
+          createVectorFieldWorker({ type: 'vector', textData: textData });
+
+        } else {
+          console.error('createVectorField: Unknown model type:', model.type);
+        }
         //console.timeEnd('createVectorField');
 
     } catch (error) {
@@ -181,12 +197,15 @@ async function createVectorField() {
 }
 
 
-function createVectorFieldWorker(imageData, width, height) {
+function createVectorFieldWorker(initialMessage) {
   // web worker instance for processing image data
   let worker = new Worker("./js/vectorFieldWorker.js");
 
-  // Send image data to the worker for processing to scalar array
-  worker.postMessage({ type: 'scalar', imageData, width, height });
+  // Send message to the worker for processing to scalar array
+  worker.postMessage(initialMessage);
+
+  let width = initialMessage.width || 0;
+  let height = initialMessage.height || 0;
 
   // Listen for the processed image data
   worker.onmessage = function(event) {
@@ -228,6 +247,49 @@ function createVectorFieldWorker(imageData, width, height) {
         // update view
         // Dispatch custom up event on the window object
         window.dispatchEvent(new CustomEvent('update',{ detail: 'vectorField gradientDone'}));
+
+        // worker is done
+        worker.terminate();
+        worker = null;
+
+        break;
+      }
+      case 'vectorDone': {
+        console.log(`createVectorField: Worker done: vector`);
+        // store scalar data
+        scalarData = message.scalarData;
+
+        // Set width & height from parsed data
+        width = message.width;
+        height = message.height;
+
+        // store array dimensions
+        scalarMapWidth = width;
+        scalarMapHeight = height;
+
+        // create map contours
+        if (ADD_CONTOURS) { contours.createContours(scalarData, width, height); }
+
+        // update view
+        // Dispatch custom up event on the window object
+        window.dispatchEvent(new CustomEvent('update',{ detail: 'vectorField scalar from vectorDone'}));
+
+        // store vector data
+        vectorData = message.vectorData;
+
+        // create streamlines
+        if (renderer.state.showStreamlines) {
+          streamlines.initializeStreamlines();
+        }
+
+        // create particles
+        if (renderer.state.showParticles) {
+          particles.initializeParticles();
+        }
+
+        // update view
+        // Dispatch custom up event on the window object
+        window.dispatchEvent(new CustomEvent('update',{ detail: 'vectorField vector from vectorDone'}));
 
         // worker is done
         worker.terminate();

@@ -101,7 +101,7 @@ function createParticle(i) {
 
   // get current bounds
   const { lonMin, lonMax, latMin, latMax } = bounds;
-  
+
   // specified range
   const lonRange = lonMax - lonMin;
   const latRange = latMax - latMin;
