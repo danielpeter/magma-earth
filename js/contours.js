@@ -76,8 +76,10 @@ function createContours(data,width,height) {
 
 function clearContours() {
   // clear contours array
-  Contours.forEach(contour => contour = null);
-  if (Contours != null) Contours = null;
+  if (Contours != null) {
+      Contours.forEach(contour => contour = null);
+      Contours = null;
+  }
 }
 
 

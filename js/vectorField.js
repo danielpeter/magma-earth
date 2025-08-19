@@ -35,7 +35,7 @@ const models = [
     { name: 'SAVANI',      depth: 'depth 150 km',  path: './data/savani_150.jpg',         type: 'image' },
     { name: 'SPani-S',     depth: 'depth 150 km',  path: './data/spani-s_150.jpg',        type: 'image' },
     { name: 'TX2015',      depth: 'depth 150 km',  path: './data/tx2015_150.jpg',         type: 'image' },
-    { name: 'GLAD-AZI',    depth: 'depth 150 km',  path: './data/glad_azi_m28_150km.gridded.dat', type: 'vector_direct' }
+    { name: 'GLAD-AZI',    depth: 'multiple',      paths: { '50km': './data/glad_azi_m28_050km.gridded.dat', '150km': './data/glad_azi_m28_150km.gridded.dat', '200km': './data/glad_azi_m28_200km.gridded.dat' }, type: 'vector_direct' }
   ];
 
 const colorSchemes = [
@@ -48,6 +48,7 @@ const colorSchemes = [
 // default model selection
 let selectedModel = 1;         // 0 == none, 1 == SGLOBE-rani, 2 == S40RTS, ..
 let selectedColorScheme = 1;   // 0 == none, 1 == Magma, 2 == RdYlBu, 3 == GnBu
+let selectedDepth = '150km';   // default depth for models that support it
 
 // models
 function getModelName(){
@@ -55,7 +56,21 @@ function getModelName(){
 }
 
 function getModelDepth(){
-  return models[selectedModel].depth;
+  const model = models[selectedModel];
+  if (model.name === 'GLAD-AZI') {
+    // format: selection '150km' -> "depth 150 km"
+    const depthText = 'depth ' + selectedDepth.replace('km', ' km');
+    return depthText;
+  }
+  return model.depth;
+}
+
+function setDepthSelection(depth) {
+  selectedDepth = depth;
+}
+
+function getDepthSelection(depth) {
+  return selectedDepth;
 }
 
 // selections
@@ -142,10 +157,12 @@ async function createVectorField() {
         }
 
         const model = models[selectedModel];
+        let filePath = '';
 
         if (model.type === 'image') {
-          console.log('createVectorField: Loading image data:', model.path);
-          let image = await d3.image(model.path);
+          filePath = model.path;
+          console.log('createVectorField: Loading image data:', filePath);
+          let image = await d3.image(filePath);
           console.log('createVectorField: Image loaded:', image);
 
           const width = image.width;
@@ -180,8 +197,15 @@ async function createVectorField() {
           imageCanvas = null;
 
         } else if (model.type === 'vector_direct') {
-          console.log('createVectorField: Loading direct vector field data:', model.path);
-          let textData = await d3.text(model.path);
+          if (model.name === 'GLAD-AZI') {
+            // Use the selected depth path for GLAD-AZI
+            filePath = model.paths[selectedDepth];
+          } else {
+            // For other direct vector models, use their single path
+            filePath = model.path;
+          }
+          console.log('createVectorField: Loading direct vector field data:', filePath);
+          let textData = await d3.text(filePath);
 
           // Create the worker instance and send raw text data for parsing
           createVectorFieldWorker({ type: 'vector', textData: textData });
@@ -561,5 +585,5 @@ function drawVectorField(projection, context) {
 export { setupVectorField, getVectorField, updateVectorField, drawVectorField, isGradientValid,
          getVectorFieldColor, getVectorFieldColorAtPoint,
          getModelName, getModelDepth,
-         setModelSelection, setColorSelection,
-         getModelSelection, getColorSelection };
+         setModelSelection, setColorSelection, setDepthSelection,
+         getModelSelection, getColorSelection, getDepthSelection };

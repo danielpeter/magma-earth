@@ -403,7 +403,7 @@ function processVectorFieldFromFile(textData) {
       height = uniqueLats.size;
       width = uniqueLonsFirstRow.size;
 
-      console.log(`processVectorFieldFromFile: Inferred grid dimensions lon x lat = width x height = ${width} x ${height}`);
+      console.log(`processVectorFieldFromFile: grid dimensions width x height = ${width} x ${height} (lon x lat)`);
 
       if (width * height !== points.length) {
           console.warn(`processVectorFieldFromFile: Data is irregular and not a perfect grid.`);

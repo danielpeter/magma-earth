@@ -134,6 +134,9 @@ let viewUpdatesTransition = false;
 let viewUpdatesZoom = false;
 let modelGroup = null;
 
+// global variable for the depth menu container
+let depthMenuContainer = null;
+
 //-------------------------------
 // promises
 //-------------------------------
@@ -348,6 +351,12 @@ Promise.all(promises).then((data) => {
           d3.select("#tooltip-line").remove();
         });
   } // hotspots
+
+  // Initialize depthMenuContainer
+  depthMenuContainer = d3.select('#depth-menu-container');
+  // Set initial visibility (hidden) - this will be handled by highlightModelItem
+  // when the page loads and model is initialized via highlightModelItem(vectorField.getModelSelection());
+  depthMenuContainer.style('display', 'none');
 
   // move globe view to a country
   const rotateViewToCountry = false;
@@ -1218,6 +1227,37 @@ d3.selectAll('.menu-item')
         // update view
         updateFullView();
       }
+
+      // Depth selection
+      if (itemId.includes('nav-depth')) {
+        let depth = '';
+        switch (itemId) {
+          case 'nav-depth-50km':  { depth = '50km'; break; }
+          case 'nav-depth-150km': { depth = '150km'; break; }
+          case 'nav-depth-200km': { depth = '200km'; break; }
+        }
+        highlightDepthItem(depth);
+        // set new depth
+        vectorField.setDepthSelection(depth);
+        // update GLAD-AZI model selection
+        vectorField.setModelSelection('GLAD-AZI');
+        // clear streamlines
+        if (renderer.state.showStreamlines) streamlines.clearStreamlines();
+        // clear both contexts, for globe & animation drawing
+        clearContexts();
+        // low-res render
+        renderer.render(projection, contextGlobe, path, transform, landLowRes, bordersLowRes, plates, quakes, false);
+        // setup vector field
+        vectorField.setupVectorField().then(() => {
+          // setup vector field texture map
+          //vectorField.updateVectorField(projection,width,height);
+          console.log(`setupVectorField: done`);
+          // update view
+          updateFullView();
+          // update svg element name
+          modelGroup.updateName();
+        });
+      }
     });
 
 
@@ -1246,9 +1286,39 @@ function highlightModelItem(name) {
       }
     });
 
+  // Toggle visibility of depth menu
+  // Ensure depthMenuContainer is initialized before trying to use it
+  if (depthMenuContainer) {
+    if (name.toLowerCase() === 'glad-azi') {
+      depthMenuContainer.style('display', 'block');
+      // Highlight default depth when GLAD-AZI is selected initially or when switching to GLAD-AZI
+      const depth = vectorField.getDepthSelection();
+      highlightDepthItem(depth); // Default depth
+    } else {
+      depthMenuContainer.style('display', 'none');
+      // Unhighlight all depth items when the depth menu is hidden
+      //highlightDepthItem(''); // Pass an empty string to unhighlight all
+    }
+  }
+
   //const item = document.getElementById(itemId);
   //item.classList.add('highlighted'); // Add the highlighted class
   //item.classList.remove('highlighted'); // Remove the highlighted class
+}
+
+// function to highlight depth menu items
+function highlightDepthItem(depth) {
+  d3.selectAll("[id^='nav-depth-']")
+    .each(function() {
+      const element = d3.select(this);
+      const id = element.attr('id');
+      const depthName = id.replace('nav-depth-', '');
+      if (depthName.toLowerCase() === depth.toLowerCase()) {
+        element.classed('highlighted', true);
+      } else {
+        element.classed('highlighted', false);
+      }
+    });
 }
 
 function highlightColorItem(name) {
