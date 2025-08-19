@@ -1270,10 +1270,10 @@ function highlightModelItem(name) {
 
       // Get the full id, e.g., 'nav-model-sglobe-rani'
       const id = element.attr('id');
-    
+
       // Split the id to get the part after 'nav-model-'
       const modelName = id.replace('nav-model-', '');  // Extract 'sglobe-rani'
-    
+
       // case-insensitive comparison
       if (modelName.toLowerCase() === name.toLowerCase()) {
         // highlight element
@@ -1352,7 +1352,7 @@ function highlightColorItem(name) {
       d3.select('#nav-color-GnBu').classed('highlighted', false);
       d3.select('#nav-color-none').classed('highlighted', true);
       break;
-    }    
+    }
     default:
       console.log(`highlightColorItem: unrecognized name ${name}`);
   }
